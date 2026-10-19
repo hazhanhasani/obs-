@@ -32,9 +32,12 @@ function render(){
   $("channel-select").innerHTML=channels.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join("");
   $("channel-select").value=state.channel;
   $("source-select").value=selected?.mode||"test";
-  $("media-select").innerHTML='<option value="">انتخاب فایل...</option>'+media.map(m=>'<option value="'+esc(m.file)+'">'+esc(m.name)+'</option>').join("");
+  $("media-select").innerHTML='<option value="">انتخاب فایل...</option>'+media.filter(m=>m.kind==="video").map(m=>'<option value="'+esc(m.file)+'">'+esc(m.name)+'</option>').join("");
   $("media-select").value=selected?.file||"";
   $("media-select").disabled=$("source-select").value!=="file";
+  $("save-source").innerHTML=$("source-select").value==="scene"
+    ?'<i class="bi bi-layers"></i> ویرایش در استودیو صحنه'
+    :'<i class="bi bi-check2-circle"></i> ذخیره منبع پخش';
   $("preview-channel").textContent=selected?.name||"کانال اصلی";
   $("preview-title").textContent=selected?.name||"StreamCore";
   const active=!!selected?.running, desired=!!selected?.desired;
@@ -189,11 +192,18 @@ function setup(){
   document.querySelectorAll("[data-goto]").forEach(el=>el.addEventListener("click",()=>page(el.dataset.goto)));
   $("menu-toggle").addEventListener("click",()=>$("app").classList.toggle("menu-open"));
   $("channel-select").addEventListener("change",(e)=>{state.channel=e.target.value;render();});
-  $("source-select").addEventListener("change",()=>$("media-select").disabled=$("source-select").value!=="file");
+  $("source-select").addEventListener("change",()=>{
+    const mode=$("source-select").value;
+    $("media-select").disabled=mode!=="file";
+    $("save-source").innerHTML=mode==="scene"
+      ?'<i class="bi bi-layers"></i> ویرایش در استودیو صحنه'
+      :'<i class="bi bi-check2-circle"></i> ذخیره منبع پخش';
+  });
   $("start-channel").addEventListener("click",()=>action("/channels/"+state.channel+"/start",{method:"POST"}));
   $("stop-channel").addEventListener("click",()=>action("/channels/"+state.channel+"/stop",{method:"POST"}));
   $("save-source").addEventListener("click",async()=>{
     const mode=$("source-select").value,file=$("media-select").value;
+    if(mode==="scene"){page("scene");return;}
     if(mode==="file"&&!file){toast("ابتدا یک فایل ویدئویی انتخاب کنید.");return;}
     const ok=await action("/channels/"+state.channel+"/configure",{method:"POST",body:json({mode,file:mode==="file"?file:null})});
     if(ok)toast("منبع کانال ثبت شد؛ در صورت نیاز پخش را دوباره شروع کنید.");
