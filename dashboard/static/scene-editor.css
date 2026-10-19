@@ -35,3 +35,25 @@
 
 /* Prevent accidental text selection and touch gestures while dragging layers. */
 .scene-item,.scene-handle,.scene-items{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+
+/* Text layer editing and responsive typography on the 1280px virtual canvas. */
+.scene-canvas{container-type:inline-size}
+.scene-text-item{background:transparent;display:flex;align-items:stretch;justify-content:center}
+.scene-text-content{pointer-events:none;display:flex;flex-direction:column;align-items:stretch;justify-content:center;
+  padding:4%;width:100%;height:100%;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere;
+  line-height:1.4;direction:rtl;font-family:Tahoma,"DejaVu Sans",sans-serif;
+  text-shadow:0 1px 2px #000b;border-radius:7px}
+.scene-text-fields{margin-top:14px}
+#scene-text-input{display:block;width:100%;resize:vertical;min-height:82px;line-height:1.8}
+#scene-text-color{height:43px;min-width:0;cursor:pointer;padding:4px}
+.scene-item.fx-fade{animation:sceneFadeIn 850ms ease-out both}
+.scene-item.fx-slide-left{animation:sceneSlideLeft 900ms cubic-bezier(.2,.8,.2,1) both}
+.scene-item.fx-slide-right{animation:sceneSlideRight 900ms cubic-bezier(.2,.8,.2,1) both}
+.scene-item.fx-blink{animation:sceneBlink 1200ms steps(1,end) 2}
+@keyframes sceneFadeIn{from{opacity:0}to{opacity:1}}
+@keyframes sceneSlideLeft{from{transform:translateX(-110%)}to{transform:translateX(0)}}
+@keyframes sceneSlideRight{from{transform:translateX(110%)}to{transform:translateX(0)}}
+@keyframes sceneBlink{0%,49%{visibility:visible}50%,99%{visibility:hidden}100%{visibility:visible}}
+@media(prefers-reduced-motion:reduce){
+  .scene-item.fx-fade,.scene-item.fx-slide-left,.scene-item.fx-slide-right,.scene-item.fx-blink{animation:none}
+}
