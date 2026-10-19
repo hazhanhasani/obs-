@@ -77,6 +77,55 @@ class DashboardIntegrationTest(unittest.TestCase):
             self.assertEqual(client.post("/api/logout", headers=headers).status_code, 200)
             self.assertEqual(client.get("/api/overview").status_code, 401)
 
+    def test_streaming_upload_and_cleanup(self):
+        from unittest.mock import patch
+        with TestClient(streamcore.app) as client:
+            guest = client.post("/api/media/raw?filename=test.mp4",
+                                content=b"sample", headers={"content-type": "application/octet-stream"})
+            self.assertEqual(guest.status_code, 401)
+            response = client.post("/api/login", json={
+                "username": "testadmin", "password": os.environ["ADMIN_PASSWORD"]
+            })
+            self.assertEqual(response.status_code, 200)
+            headers = {"X-CSRF-Token": response.json()["csrf"],
+                       "content-type": "application/octet-stream"}
+            self.assertEqual(client.post("/api/media/raw?filename=test.mp4",
+                  content=b"sample").status_code, 403)
+            self.assertEqual(client.post("/api/media/raw?filename=test.avi",
+                  content=b"sample", headers=headers).status_code, 422)
+
+            with patch.object(streamcore, "validate_media", return_value=12.0):
+                result = client.post("/api/media/raw?filename=test.mp4",
+                                     content=b"video data", headers=headers)
+            self.assertEqual(result.status_code, 200, result.text)
+            self.assertEqual(result.json()["bytes"], len(b"video data"))
+            self.assertEqual(result.json()["name"], "test.mp4")
+            self.assertIn("max_upload_mb", client.get("/api/overview").json()["limits"])
+
+            files_before = set(streamcore.MEDIA.iterdir())
+            with patch.object(streamcore, "validate_media",
+                              side_effect=ValueError("Invalid H.264")):
+                result = client.post("/api/media/raw?filename=broken.mp4",
+                                     content=b"invalid video", headers=headers)
+            self.assertEqual(result.status_code, 422)
+            self.assertEqual(set(streamcore.MEDIA.iterdir()), files_before)
+
+            with patch.object(streamcore, "MAX_MB", 1):
+                result = client.post("/api/media/raw?filename=oversize.mp4",
+                                     content=b"x" * (1024 * 1024 + 1), headers=headers)
+            self.assertEqual(result.status_code, 413)
+            self.assertEqual(set(streamcore.MEDIA.iterdir()), files_before)
+
+    def test_media_ui_has_progress_and_player_cleanup(self):
+        with TestClient(streamcore.app) as client:
+            html = client.get("/").text
+            self.assertIn('id="upload-progress"', html)
+            self.assertIn('id="upload-cancel"', html)
+            self.assertIn("disablepictureinpicture", html)
+        frontend = (Path(__file__).resolve().parents[1] / "dashboard" / "static" / "app.js").read_text()
+        self.assertIn("function uploadMediaFile(", frontend)
+        self.assertIn('if(pageName!=="dashboard" && state.playerKey!==null)stopPlayer()', frontend)
+
     def test_source_path_rejected(self):
         controller = streamcore.Controller()
         with self.assertRaises(ValueError):
