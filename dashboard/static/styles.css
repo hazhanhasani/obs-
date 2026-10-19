@@ -50,3 +50,16 @@
  .encoder-kpis>span{flex:1;min-width:57px}
  .encoder-kpis strong{font-size:13px}
 }
+
+/* The HLS monitor follows the actual stream frame dimensions, not 16:9 chrome. */
+.preview[data-orientation="portrait"]{
+  width:min(100%,440px);
+  margin-inline:auto;
+  height:auto;
+  aspect-ratio:9/16;
+  background:#03080d;
+}
+.preview[data-orientation="landscape"]{width:100%;margin-inline:0}
+@media(max-width:700px){
+  .preview[data-orientation="portrait"]{width:min(100%,350px)}
+}
