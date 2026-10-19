@@ -500,3 +500,33 @@ test("off-canvas size preset never jumps layer back inside video",async()=>{
   assert.equal(l.w,50);
   assert.equal(l.h,28);
 });
+
+// Real touch/mouse fallback coverage for embedded browsers lacking Pointer Events.
+for(const [corner,expected] of [
+  ["nw",{x:15,y:20,w:20,h:20}],
+  ["ne",{x:10,y:20,w:30,h:20}],
+  ["sw",{x:15,y:15,w:20,h:30}],
+  ["se",{x:10,y:15,w:30,h:30}]
+]){
+  test("legacy Android touch resize "+corner+" persists on release",async()=>{
+    const h=harness();await h.open();
+    h.root.dispatch("touchstart",{target:cornerTarget(corner),
+      changedTouches:[{identifier:7,clientX:200,clientY:120}]});
+    h.window.dispatch("touchmove",{changedTouches:[{identifier:8,clientX:800,clientY:900}]});
+    assert.equal(h.document.getElementById("scene-w").value,25);
+    h.window.dispatch("touchmove",{changedTouches:[{identifier:7,clientX:250,clientY:148.125}]});
+    h.window.dispatch("touchend",{changedTouches:[{identifier:7,clientX:250,clientY:148.125}]});
+    await h.save();
+    for(const [field,value] of Object.entries(expected))
+      assert.equal(h.saved().layers[0][field],value,field);
+  });
+}
+test("legacy desktop mouse gestures persist",async()=>{
+  const h=harness();await h.open();
+  h.root.dispatch("mousedown",{target:h.surface,button:0,clientX:200,clientY:120});
+  h.window.dispatch("mousemove",{clientX:300,clientY:176.25});
+  h.window.dispatch("mouseup",{clientX:300,clientY:176.25});
+  await h.save();
+  assert.equal(h.saved().layers[0].x,20);
+  assert.equal(h.saved().layers[0].y,25);
+});
