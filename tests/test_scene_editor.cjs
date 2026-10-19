@@ -25,7 +25,7 @@ function harness({canvasWidth=1000,canvasHeight=562.5}={}) {
     }
     addEventListener(event, callback) {this.listeners.set(event, callback);}
     dispatch(type, payload) {
-      const event = {type, pointerId:1, pointerType:"touch", button:0,
+      const event = {type, target:this, pointerId:1, pointerType:"touch", button:0,
         clientX:200, clientY:120, preventDefault() {}, ...payload};
       this.listeners.get(type)?.(event);
     }
@@ -348,7 +348,7 @@ test("unsaved canvas is clearly marked as draft and live frames are not implied"
 test("scene editor asks FFmpeg for the authentic test background",async()=>{
   const h=harness();await h.open();
   const source=h.document.getElementById("scene-base-image");
-  assert.equal(source.src,"/api/scene/test-pattern");
+  assert.equal(source.src,"/api/scene/test-pattern?preset=landscape");
   assert.equal(source.hidden,false);
   assert.equal(h.document.getElementById("scene-colorbars").hidden,true);
   source.onerror();
