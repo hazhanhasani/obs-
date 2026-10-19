@@ -29,8 +29,12 @@
     const movingLeft=corner.includes("w"),movingTop=corner.includes("n");
     const left=initial.x,right=initial.x+initial.w;
     const top=initial.y,bottom=initial.y+initial.h;
-    const x=movingLeft?clamp(tenth(left+dx),MIN_POSITION,Math.min(MAX_POSITION,right-MIN_SIZE)):left;
-    const y=movingTop?clamp(tenth(top+dy),MIN_POSITION,Math.min(MAX_POSITION,bottom-MIN_SIZE)):top;
+    // Both size and position limits apply to the MOVING edge. If we clamp
+    // width only after computing x, a hard NW/SW drag shifts the opposite edge.
+    const x=movingLeft?clamp(tenth(left+dx),
+      Math.max(MIN_POSITION,right-MAX_SIZE),Math.min(MAX_POSITION,right-MIN_SIZE)):left;
+    const y=movingTop?clamp(tenth(top+dy),
+      Math.max(MIN_POSITION,bottom-MAX_SIZE),Math.min(MAX_POSITION,bottom-MIN_SIZE)):top;
     const w=movingLeft?tenth(right-x):clamp(tenth(initial.w+dx),MIN_SIZE,MAX_SIZE);
     const h=movingTop?tenth(bottom-y):clamp(tenth(initial.h+dy),MIN_SIZE,MAX_SIZE);
     return {x,y,w:clamp(w,MIN_SIZE,MAX_SIZE),h:clamp(h,MIN_SIZE,MAX_SIZE)};
@@ -469,12 +473,10 @@
   function resizeSelected(width,height){
     if(drag)return;
     const layer=getLayer(selected);if(!layer)return;
-    layer.w=clamp(width,5,100);
-    layer.h=clamp(height,5,100);
-    // Presets should not silently shrink because the overlay was near
-    // the right/bottom edge. Move it inside the canvas when necessary.
-    layer.x=clamp(layer.x,0,100-layer.w);
-    layer.y=clamp(layer.y,0,100-layer.h);
+    // Size presets alter dimensions only. Never reposition an intentionally
+    // off-canvas overlay; use "Center layer" for explicit recovery.
+    layer.w=clamp(width,MIN_SIZE,MAX_SIZE);
+    layer.h=clamp(height,MIN_SIZE,MAX_SIZE);
     markDirty();preview();recordGeometry();
   }
   function init(deps){
