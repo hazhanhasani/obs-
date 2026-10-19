@@ -6,7 +6,7 @@
 
 **Stream once. Run continuously. Manage from anywhere.**
 
-[![Version](https://img.shields.io/badge/version-0.5.1--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
+[![Version](https://img.shields.io/badge/version-0.5.2--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Self Hosted](https://img.shields.io/badge/deployment-self--hosted-172436?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Powered by](https://img.shields.io/badge/media-FFmpeg%20%2B%20MediaMTX-19bd93?style=flat-square)](https://github.com/hazhanhasani/obs-)
 
@@ -18,7 +18,7 @@
 
 ## ✨ Design preview
 
-> **Concept designs — not screenshots from a tested deployment.** Some controls, counters, and features shown here are illustrative and are not yet available in the v0.5.1 alpha. These images show the approved design direction.
+> **Concept designs — not screenshots from a tested deployment.** Some controls, counters, and features shown here are illustrative and are not yet available in the v0.5.2 alpha. These images show the approved design direction.
 
 <div align="center">
 
@@ -47,7 +47,7 @@
 
 Unlike a traditional desktop-based streaming setup, **StreamCore runs its media pipeline on your own Linux VPS**. Your computer and phone do not need to stay online. The browser is only used to configure and monitor your streams.
 
-| Capability | v0.5.1 alpha |
+| Capability | v0.5.2 alpha |
 |:--|:--|
 | Server-generated live test broadcast | ✅ Implemented |
 | Upload H.264 videos and PNG/JPG/WebP still images | ✅ Implemented |
@@ -64,6 +64,29 @@ Unlike a traditional desktop-based streaming setup, **StreamCore runs its media 
 | External live input URL ingest | 🛠️ Planned |
 | Viewer analytics and advanced graphs | 🛠️ Planned |
 | Protected paid/private HLS | 🛠️ Planned |
+
+## 📱 Mobile Scene Editor Stability — v0.5.2-alpha
+
+The mobile layer editor was audited for Android/WebView pointer events,
+periodic data refreshes, layout resizing and server-side persistence.
+
+- **Active gestures are never overwritten by periodic 5-second dashboard refreshes.**
+- Touch movements survive leaving the canvas or losing pointer capture.
+- The editor shows **X / Y / width / height percentages** while dragging.
+- Quick-size presets (25%, 50%, 75%) are available as a fallback on touch devices.
+- Saving verifies that the API returned the exact persisted geometry.
+- Versioned assets (`scene-editor.js?v=0.5.2`) avoid stale JavaScript and CSS
+  after deployment; page reload may still be needed for older open tabs.
+- Eleven regression scenarios include an Android-sized 390px canvas and
+  a polling event in the middle of an active resize.
+
+**Important:** this is a GitHub source fix. Your VPS must pull/rebuild the new
+version before the phone uses it. The connected VPS control channel is
+currently unavailable, so production-device verification is still pending.
+Avoid changing a live stream during active broadcasts.
+
+[Mobile troubleshooting guide](docs/MOBILE_SCENE_DEBUG.md) ·
+[Editor regression tests](tests/test_scene_editor.cjs)
 
 ## ⚡ VPS performance and safe scenes — v0.5.1-alpha
 
@@ -238,7 +261,7 @@ For full configuration and safety notes, see the [deployment guide](docs/DEPLOYM
 
 ## 📜 License and status
 
-**Development status:** v0.5.1 alpha — not yet validated for production deployment. No open-source license has been granted for this repository. All rights reserved unless a license is added.
+**Development status:** v0.5.2 alpha — not yet validated for production deployment. No open-source license has been granted for this repository. All rights reserved unless a license is added.
 
 <div align="center">
 
