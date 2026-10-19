@@ -1,5 +1,8 @@
 """Authenticated server-rendered scene preview must not mutate a live stream."""
 import unittest
+import shutil
+from io import BytesIO
+from PIL import Image
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -75,6 +78,23 @@ class DraftScenePreviewTests(unittest.TestCase):
         self.assertEqual(snapshot[-1], "pipe:1")
         self.assertNotIn("rtmp://mediamtx:1935/main", snapshot)
         self.assertIn("-frames:v", snapshot)
+
+    @unittest.skipUnless(shutil.which("ffmpeg"), "requires FFmpeg")
+    def test_testsrc2_poster_is_authenticated_and_matches_program_canvas(self):
+        """The editor background must be drawn by FFmpeg, not CSS test bars."""
+        with TestClient(streamcore.app) as client:
+            endpoint = "/api/scene/test-pattern"
+            self.assertEqual(client.get(endpoint).status_code, 401)
+            self.login(client)
+            picture = client.get(endpoint)
+            self.assertEqual(picture.status_code, 200, picture.text[:160])
+            self.assertTrue(picture.content.startswith(bytes((255, 216))))
+            self.assertIn("image/jpeg", picture.headers["content-type"])
+            with Image.open(BytesIO(picture.content)) as image:
+                self.assertEqual(image.size, (1280, 720))
+                left = image.convert("RGB").getpixel((80, 120))
+                right = image.convert("RGB").getpixel((1170, 120))
+                self.assertNotEqual(left, right)
 
     def test_busy_preview_returns_429(self):
         class BusyLimiter:
