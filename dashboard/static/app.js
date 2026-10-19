@@ -1,6 +1,6 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
-const state = {csrf:null, overview:null, channel:"main", page:"dashboard", playerKey:null, hls:null, chartCPU:[], chartRAM:[], timer:null};
+const state = {csrf:null, overview:null, channel:"main", page:"dashboard", playerKey:null, hls:null, chartCPU:[], chartRAM:[], timer:null, uploadRequest:null};
 const providers = {telegram:"تلگرام",instagram:"اینستاگرام",aparat:"آپارات",youtube:"یوتیوب",twitch:"توییچ",custom:"RTMP اختصاصی"};
 const providersIcons = {telegram:"bi-telegram",instagram:"bi-instagram",aparat:"bi-collection-play",youtube:"bi-youtube",twitch:"bi-twitch",custom:"bi-broadcast"};
 const fa = (value) => Number(value || 0).toLocaleString("fa-IR");
@@ -51,9 +51,17 @@ function render(){
   $("hls-url").textContent=url;
   renderMedia(media);renderChannels(channels);renderDestinations(data.destinations || [], channels);renderChart(data.system.cpu,data.system.ram);
   const playerKey=state.channel+":"+(active?"live":"off");
-  if(playerKey!==state.playerKey){state.playerKey=playerKey;updatePlayer(url,active);}
+  if(state.page==="dashboard" && playerKey!==state.playerKey){updatePlayer(url,active);}
+  if(state.page!=="dashboard" && state.playerKey!==null)stopPlayer();
 }
-function stopPlayer(){if(state.hls){state.hls.destroy();state.hls=null;}const vid=$("player");vid.pause();vid.removeAttribute("src");vid.load();state.playerKey=null;}
+function stopPlayer(){
+  const vid=$("player");
+  if(document.pictureInPictureElement===vid && document.exitPictureInPicture){
+    document.exitPictureInPicture().catch(()=>{});
+  }
+  if(state.hls){state.hls.destroy();state.hls=null;}
+  vid.pause();vid.removeAttribute("src");vid.load();state.playerKey=null;
+}
 function updatePlayer(url,active){
   stopPlayer();state.playerKey=state.channel+":"+(active?"live":"off");
   $("preview-empty").hidden=active;
@@ -67,6 +75,50 @@ function updatePlayer(url,active){
   }else if(video.canPlayType("application/vnd.apple.mpegurl")){video.src=url;video.play().catch(()=>{});}
   else {$("preview-empty").hidden=false;$("preview-empty").querySelector("span").textContent="مرورگر شما از HLS پشتیبانی نمی‌کند یا کتابخانه پخش بارگذاری نشده است.";}
 }
+function uploadMediaFile(file){
+  return new Promise((resolve,reject)=>{
+    const xhr=new XMLHttpRequest();
+    state.uploadRequest=xhr;
+    let finished=false;
+    const done=(error,data)=>{
+      if(finished)return;
+      finished=true;
+      if(error)reject(error);else resolve(data);
+    };
+    xhr.open("POST","/api/media/raw?filename="+encodeURIComponent(file.name),true);
+    xhr.withCredentials=true;
+    xhr.setRequestHeader("Content-Type","application/octet-stream");
+    xhr.setRequestHeader("X-CSRF-Token",state.csrf||"");
+    xhr.timeout=30*60*1000;
+    xhr.upload.onprogress=(event)=>{
+      if(event.lengthComputable && event.total>0){
+        const percent=Math.min(100,Math.floor(event.loaded*100/event.total));
+        $("upload-progress").value=percent;
+        $("upload-percent").textContent=fa(percent)+"٪";
+        $("upload-phase").textContent=percent>=100?"انتقال کامل شد؛ در حال بررسی H.264...":"در حال ارسال فایل به VPS";
+      }else{
+        $("upload-phase").textContent="در حال ارسال فایل به VPS...";
+      }
+    };
+    xhr.upload.onload=()=>{
+      $("upload-progress").value=100;
+      $("upload-percent").textContent="۱۰۰٪";
+      $("upload-phase").textContent="فایل دریافت شد؛ در حال بررسی کدک و ذخیره نهایی...";
+    };
+    xhr.onload=()=>{
+      let data={};
+      try{data=JSON.parse(xhr.responseText||"{}");}catch(_){}
+      if(xhr.status===401){showLogin();return done(new Error("نشست شما منقضی شده؛ دوباره وارد شوید."));}
+      if(xhr.status>=200 && xhr.status<300){return done(null,data);}
+      return done(new Error(typeof data.detail==="string"?data.detail:"آپلود ناموفق بود (HTTP "+xhr.status+")."));
+    };
+    xhr.onerror=()=>done(new Error("ارتباط هنگام آپلود قطع شد. اتصال اینترنت را بررسی کنید."));
+    xhr.ontimeout=()=>done(new Error("زمان انتظار برای آپلود به پایان رسید؛ وضعیت فایل‌ها را بررسی کنید."));
+    xhr.onabort=()=>done(new Error("آپلود لغو شد."));
+    xhr.send(file);
+  });
+}
+
 function renderMedia(media){
   const html=media.slice(0,6).map(m=>'<tr><td><span class="media-name"><span class="media-thumb"><i class="bi bi-film"></i></span>'+esc(m.name)+'</span></td><td dir="ltr">'+duration(m.duration)+'</td><td dir="ltr">'+size(m.bytes)+'</td><td><button class="mini-action" data-use="'+esc(m.file)+'">انتخاب برای کانال</button></td></tr>').join("");
   $("media-queue").innerHTML=html;$("media-empty").hidden=media.length>0;
@@ -112,11 +164,13 @@ function renderChart(cpu,ram){
 }
 async function refresh(){state.overview=await api("/overview");render();}
 function page(pageName){
+  if(pageName!=="dashboard" && state.playerKey!==null)stopPlayer();
   state.page=pageName;
   document.querySelectorAll("[data-view]").forEach(el=>el.hidden=el.dataset.view!==pageName);
   document.querySelectorAll("[data-page]").forEach(el=>el.classList.toggle("active",el.dataset.page===pageName));
   $("page-heading").textContent=({dashboard:"داشبورد استریم",channels:"کانال‌ها",media:"کتابخانه رسانه",system:"وضعیت سیستم",destinations:"پخش چندمقصدی"})[pageName];
   $("app").classList.remove("menu-open");
+  if(pageName==="dashboard" && state.overview)render();
 }
 async function action(path,opts){try{await api(path,opts);await refresh();return true;}catch(e){toast(e.message);return false;}}
 function json(data){return JSON.stringify(data);}
@@ -150,11 +204,35 @@ function setup(){
     catch(err){toast(err.message);}finally{$("dest-submit").disabled=false;}
   });
   $("upload-form").addEventListener("submit",async(e)=>{
-    e.preventDefault();const file=$("media-file").files[0];if(!file)return;
-    const form=new FormData();form.append("file",file);$("upload-btn").disabled=true;$("upload-result").textContent="در حال آپلود و بررسی کدک ویدئو...";
-    try{const result=await api("/media",{method:"POST",body:form});$("upload-result").textContent="آپلود موفق: "+result.name;$("media-file").value="";await refresh();toast("رسانه اضافه شد.");}
-    catch(err){$("upload-result").textContent=err.message;toast(err.message);}finally{$("upload-btn").disabled=false;}
+    e.preventDefault();
+    if(state.uploadRequest)return;
+    const file=$("media-file").files[0];if(!file)return;
+    const maxMB=state.overview?.limits?.max_upload_mb||1024;
+    if(!file.size || file.size>maxMB*1024*1024){
+      const message=!file.size?"فایل انتخاب‌شده خالی است.":"حداکثر حجم مجاز "+fa(maxMB)+" مگابایت است.";
+      $("upload-result").textContent=message;toast(message);return;
+    }
+    $("upload-btn").disabled=true;
+    $("upload-progress-wrap").hidden=false;
+    $("upload-progress").value=0;
+    $("upload-percent").textContent="۰٪";
+    $("upload-phase").textContent="در حال ارسال فایل به VPS";
+    $("upload-result").textContent="لطفاً تا پایان انتقال این صفحه را باز نگه دارید.";
+    try{
+      const result=await uploadMediaFile(file);
+      $("upload-result").textContent="فایل با موفقیت ذخیره و بررسی شد: "+result.name;
+      $("media-file").value="";
+      await refresh();toast("رسانه اضافه شد.");
+    }catch(err){
+      $("upload-result").textContent=err.message;
+      toast(err.message);
+    }finally{
+      state.uploadRequest=null;
+      $("upload-btn").disabled=false;
+      $("upload-progress-wrap").hidden=true;
+    }
   });
+  $("upload-cancel").addEventListener("click",()=>state.uploadRequest?.abort());
   document.addEventListener("click",async(e)=>{
     const destToggle=e.target.closest("[data-toggle-dest]");
     if(destToggle){await action("/destinations/"+destToggle.dataset.toggleDest,{method:"PATCH",body:json({enabled:destToggle.dataset.next==="true"})});return;}
