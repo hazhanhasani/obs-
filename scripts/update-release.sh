@@ -4,6 +4,11 @@ set -Eeuo pipefail
 umask 077
 APP=/opt/streamcore
 BACKUPS=/var/backups/streamcore
+MODE="${1:-}"
+[[ -z "$MODE" || "$MODE" == "--check" ]] || {
+  echo "Usage: update-release.sh [--check]" >&2
+  exit 2
+}
 ORIGIN=https://github.com/hazhanhasani/obs-.git
 say(){ printf '[StreamCore update] %s\n' "$*"; }
 stop(){ say "ERROR: $*" >&2; exit 1; }
@@ -19,6 +24,10 @@ setting(){ sed -n "s/^$1=//p" .env | head -1 | tr -d '\r'; }
 tag="$(python3 scripts/release-check.py VERSION 2>/dev/null)" ||
   { say "No newer published stable release."; exit 0; }
 say "New release detected: $tag"
+if [[ "$MODE" == "--check" ]]; then
+  say "Dry run: release available, no Git checkout, backup, or Docker action."
+  exit 0
+fi
 git fetch --quiet --no-tags origin "refs/tags/$tag:refs/tags/$tag" ||
   stop "Could not fetch release tag."
 target="$(git rev-parse --verify "refs/tags/$tag^{commit}")"
@@ -35,6 +44,7 @@ with sqlite3.connect("/data/streamcore.sqlite3") as db:
   if (( desired > 0 )); then say "Live channels active; deferring update."; exit 0; fi
 fi
 old="$(git rev-parse HEAD)"
+old_branch="$(git symbolic-ref --quiet --short HEAD || true)"
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 backup="$BACKUPS/$stamp"
 install -d -m 0700 "$backup"
@@ -42,19 +52,31 @@ cp -p .env "$backup/dot-env"
 printf '%s\n' "$old" > "$backup/previous-commit"
 container="$(docker compose ps -q dashboard)"
 [[ -n "$container" ]] || stop "Dashboard must run for a safe SQLite backup."
-docker compose exec -T dashboard python3 -c '
+db_staging="/tmp/streamcore-update-${stamp}.sqlite3"
+docker compose exec -T dashboard python3 - "$db_staging" <<'PY' ||
+  stop "Database backup failed."
 import sqlite3
-with sqlite3.connect("/data/streamcore.sqlite3") as src, sqlite3.connect("/data/update-backup.sqlite3") as dst:
- src.backup(dst)
-' || stop "Database backup failed."
-docker cp "$container:/data/update-backup.sqlite3" "$backup/database.sqlite3" ||
+import sys
+source="/data/streamcore.sqlite3"
+with sqlite3.connect(source) as src, sqlite3.connect(sys.argv[1]) as dst:
+    src.backup(dst)
+    if dst.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+        raise RuntimeError("SQLite snapshot failed integrity check")
+PY
+docker cp "$container:$db_staging" "$backup/database.sqlite3" ||
   stop "Cannot export SQLite backup."
+docker compose exec -T dashboard rm -f -- "$db_staging" ||
+  stop "Could not remove temporary snapshot from container."
 chmod 600 "$backup/"*
 say "Private database and env backup: $backup"
 rollback(){
   trap - ERR
   say "Unhealthy upgrade: restoring previous code and containers."
-  git checkout --quiet --detach "$old" || true
+  if [[ -n "$old_branch" ]]; then
+    git checkout --quiet "$old_branch" || git checkout --quiet --detach "$old" || true
+  else
+    git checkout --quiet --detach "$old" || true
+  fi
   docker compose up -d --build || true
   say "Database backup retained separately at $backup (not overwritten)."
   exit 1
@@ -77,3 +99,4 @@ done
 [[ "$healthy" == true ]] || rollback
 trap - ERR
 say "Installed $tag successfully. Backup: $backup"
+say "Release checkout is detached by design; use the timer for later updates."
