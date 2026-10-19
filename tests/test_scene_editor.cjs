@@ -55,7 +55,14 @@ function harness() {
   const root=document.getElementById("scene-items");
   root.sceneLayer = {dataset:{layer:"layer_logo",selectLayer:"layer_logo"},
     classList:{toggle(){}},style:{}};
-  const window={addEventListener(){},StreamCoreScene:null};
+  const window={listeners:new Map(),StreamCoreScene:null,
+    addEventListener(event,handler){this.listeners.set(event,handler);},
+    dispatch(type,payload){
+      const event={type,pointerId:1,pointerType:"touch",button:0,
+        clientX:200,clientY:120,preventDefault(){},...payload};
+      this.listeners.get(type)?.(event);
+    }
+  };
   vm.runInNewContext(
     fs.readFileSync(path.join(__dirname,"../dashboard/static/scene-editor.js"),"utf8"),
     {document,window,console,Math,Date,Number,String,JSON,Promise}
@@ -66,7 +73,7 @@ function harness() {
   const api=async (url,options)=>{
     if(!options)return {base_file:null,layers:[layer]};
     saved=JSON.parse(options.body);
-    return {ok:true};
+    return {ok:true,scene:{layers:saved.layers,text_layers:saved.text_layers}};
   };
   window.StreamCoreScene.init({api,toast(){},page(){}});
   const media=[{id:7,file:"logo.png",name:"Brand logo",kind:"image"}];
@@ -154,4 +161,59 @@ test("text layer can be written, styled and saved without clearing media layers"
   assert.equal(h.saved().text_layers[0].start_sec,2);
   assert.equal(h.saved().text_layers[0].duration_sec,6);
   assert.equal(h.saved().text_layers[0].repeat_sec,20);
+});
+
+test("overview polling during active resize never recreates the touched layer",async()=>{
+  const h=harness();await h.open();
+  h.root.dispatch("pointerdown",{target:h.handle,clientX:200,clientY:120});
+  const initial=h.root.innerHTML;
+  h.root.dispatch("pointermove",{clientX:350,clientY:176.25});
+  h.window.StreamCoreScene.sync({
+    channels:[{id:"main",name:"Main"}],
+    media:[{id:7,file:"logo.png",name:"Brand logo",kind:"image"},
+           {id:8,file:"extra.png",name:"New image",kind:"image"}]
+  });
+  assert.equal(h.root.innerHTML,initial,"periodic refresh must never rebuild active gesture DOM");
+  assert.equal(h.root.captured,1);
+  h.root.dispatch("pointerup",{clientX:350,clientY:176.25});
+  assert.match(h.root.innerHTML,/width:40%;height:35%/);
+  await h.save();
+  assert.equal(h.saved().layers[0].w,40);
+  assert.equal(h.saved().layers[0].h,35);
+});
+
+test("window gesture fallback resizes when pointer leaves canvas",async()=>{
+  const h=harness();await h.open();
+  h.root.dispatch("pointerdown",{target:h.handle,clientX:200,clientY:120});
+  h.window.dispatch("pointermove",{clientX:300,clientY:176.25});
+  h.window.dispatch("pointerup",{clientX:300,clientY:176.25});
+  assert.match(h.root.innerHTML,/width:35%;height:35%/);
+  await h.save();
+  assert.equal(h.saved().layers[0].w,35);
+  assert.equal(h.saved().layers[0].h,35);
+});
+
+test("touch cancellation retains geometry and versioned assets",async()=>{
+  const h=harness();await h.open();
+  h.root.dispatch("pointerdown",{target:h.handle,clientX:200,clientY:120});
+  h.root.dispatch("pointermove",{clientX:350,clientY:176.25});
+  h.root.dispatch("pointercancel",{clientX:350,clientY:176.25});
+  await h.save();
+  const saved=h.saved().layers[0];
+  assert.equal(saved.w,40);
+  assert.equal(saved.h,35);
+  assert.equal(h.window.StreamCoreScene.hasUnsaved(),false);
+  const html=fs.readFileSync(path.join(__dirname,"../dashboard/static/index.html"),"utf8");
+  assert.match(html,/scene-editor\.js\?v=0\.5\.2/);
+  assert.match(html,/id="scene-gesture-status"/);
+  assert.match(html,/id="scene-preset-50"/);
+});
+
+test("size preset is retained through API save",async()=>{
+  const h=harness();await h.open();
+  h.document.getElementById("scene-preset-50").dispatch("click",{});
+  assert.match(h.root.innerHTML,/width:50%;height:28%/);
+  await h.save();
+  assert.equal(h.saved().layers[0].w,50);
+  assert.equal(h.saved().layers[0].h,28);
 });
