@@ -82,7 +82,15 @@ function updatePlayer(url,active){
     state.hls=new Hls({liveSyncDurationCount:3,maxBufferLength:12});
     state.hls.loadSource(url);state.hls.attachMedia(video);
     state.hls.on(Hls.Events.MANIFEST_PARSED,()=>video.play().catch(()=>{}));
-    state.hls.on(Hls.Events.ERROR,(_ev,info)=>{if(info.fatal){$("preview-empty").hidden=false;$("preview-empty").querySelector("span").textContent="در حال دریافت سیگنال HLS؛ چند ثانیه دیگر دوباره بررسی می‌شود.";state.hls?.startLoad();}});
+    video.onplaying=()=>{$("preview-empty").hidden=true;};
+    state.hls.on(Hls.Events.ERROR,(_ev,info)=>{
+      if(!info.fatal)return;
+      $("preview-empty").hidden=false;
+      $("preview-empty").querySelector("span").textContent="در حال بازیابی پیش‌نمایش HLS…";
+      if(info.type===Hls.ErrorTypes.NETWORK_ERROR){state.hls?.startLoad();}
+      else if(info.type===Hls.ErrorTypes.MEDIA_ERROR){state.hls?.recoverMediaError();}
+      else {state.hls?.destroy();state.hls=null;state.playerKey=null;}
+    });
   }else if(video.canPlayType("application/vnd.apple.mpegurl")){video.src=url;video.play().catch(()=>{});}
   else {$("preview-empty").hidden=false;$("preview-empty").querySelector("span").textContent="مرورگر شما از HLS پشتیبانی نمی‌کند یا کتابخانه پخش بارگذاری نشده است.";}
 }
@@ -152,7 +160,7 @@ function renderDestinations(destinations, channels){
   }
   $("dest-total").textContent=fa(destinations.length)+" مقصد";
   $("destination-list").innerHTML=destinations.map(d=>{
-    const status=d.sending?"در حال ارسال":d.enabled?"در انتظار اتصال":"غیرفعال";
+    const status=d.sending?"جریان خروجی فعال":d.enabled?"در انتظار اتصال":"غیرفعال";
     const klass=d.sending?"green":"gray";
     return '<article class="destination-row"><div class="destination-icon"><i class="bi '+(providersIcons[d.platform]||"bi-broadcast")+'"></i></div>'
       +'<div class="destination-info"><strong>'+esc(d.label)+'</strong>'

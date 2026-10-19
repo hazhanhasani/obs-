@@ -4,6 +4,8 @@ import sqlite3
 import sys
 import tempfile
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "dashboard"))
@@ -28,6 +30,42 @@ class DestinationTests(unittest.TestCase):
 
     def tearDown(self):
         self.temp.cleanup()
+
+
+    def test_live_process_without_progress_is_not_sending(self):
+        proc = SimpleNamespace(pid=123, stdout=None, poll=lambda: None)
+        self.manager.processes['dest'] = proc
+        self.assertFalse(self.manager.status('dest')['sending'])
+
+    def test_stalled_relay_is_stopped_without_stopping_channel(self):
+        ident = self.manager.create('main', 'telegram', 'Test',
+                                    'rtmps://example.com/live', 'secret', True)
+        proc = SimpleNamespace(pid=123, stdout=None, poll=lambda: None)
+        self.manager.processes[ident] = proc
+        self.manager.tracker.clock = lambda: 0
+        self.manager.tracker.attach(ident, proc)
+        self.manager.tracker.clock = lambda: 60
+        with patch.object(self.manager, 'stop') as stop:
+            self.manager.reconcile()
+        stop.assert_called_once_with(ident)
+        self.assertGreater(self.manager.retry_after[ident], 0)
+
+    def test_relay_reports_only_sanitized_progress(self):
+        proc = SimpleNamespace(pid=123, stdout=None, poll=lambda: None)
+        self.manager.processes['dest'] = proc
+        self.manager.tracker.attach('dest', proc)
+        self.manager.tracker.record('dest', 123, {'frame': '100', 'speed': '1x',
+                                                 'url': 'SECRET'})
+        state = self.manager.status('dest')
+        self.assertTrue(state['sending'])
+        self.assertNotIn('SECRET', json.dumps(state))
+
+    def test_relay_bounds_network_waits_and_emits_progress(self):
+        row = {'server_url': 'rtmps://example.com/live', 'channel_id': 'main',
+               'encrypted_key': self.manager.crypt.encrypt(b'secret').decode()}
+        cmd = self.manager.command(row)
+        self.assertEqual(cmd.count('-rw_timeout'), 2)
+        self.assertEqual(cmd[cmd.index('-progress') + 1], 'pipe:1')
 
     def test_server_validation(self):
         self.assertEqual(validate_server("rtmps://example.com/live/"), "rtmps://example.com/live")

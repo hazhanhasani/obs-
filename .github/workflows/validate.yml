@@ -23,7 +23,7 @@ jobs:
           node --check dashboard/static/app.js
           node --check dashboard/static/scene-editor.js
           node --test tests/test_scene_editor.cjs tests/test_scene_transform.cjs
-          node --test tests/test_telemetry_ui.cjs
+          node --test tests/test_telemetry_ui.cjs tests/test_player_recovery.cjs
           python -m compileall -q dashboard
           cp .env.example .env
           docker compose --profile legacy-demo --profile legacy-file config --quiet

@@ -79,12 +79,11 @@ rollback(){
   trap - ERR
   say "Unhealthy upgrade: restoring previous code and containers."
   if [[ -n "$old_branch" ]]; then
-    git checkout --quiet "$old_branch" || git checkout --quiet --detach "$old" || true
-  else
-    # Repository was clean before deployment. Returning main to its previous
-  # commit preserves normal git pull --ff-only on all subsequent upgrades.
-  git reset --hard --quiet "$old" || true
+    git checkout --quiet "$old_branch" || { say "Cannot restore original branch."; exit 1; }
   fi
+  # Checking out main alone leaves it at the failed release's commit.
+  # The worktree was checked clean before deployment; restore its exact SHA.
+  git reset --hard --quiet "$old" || { say "Cannot restore original commit."; exit 1; }
   docker compose up -d --build || true
   say "Database backup retained separately at $backup (not overwritten)."
   exit 1
@@ -116,4 +115,4 @@ for required in dashboard mediamtx caddy; do
 done
 trap - ERR
 say "Installed $tag successfully. Backup: $backup"
-say "Release checkout is detached by design; use the timer for later updates."
+say "Main remains attached; the timer can install later releases."

@@ -49,6 +49,8 @@ class ProgressTracker:
                 "pid": process.pid,
                 "started": self.clock(),
                 "received": None,
+                "advanced": self.clock(),
+                "last_frame": None,
                 "sample": None,
                 "slow_count": 0,
             }
@@ -90,6 +92,11 @@ class ProgressTracker:
             item = self.channels.get(channel)
             if not item or item["pid"] != pid:
                 return
+            frame = sample["frame"]
+            if frame is not None and frame > (item["last_frame"] or 0):
+                item["advanced"] = self.clock()
+            if frame is not None:
+                item["last_frame"] = max(frame, item["last_frame"] or 0)
             item["sample"] = sample
             item["received"] = self.clock()
             speed = sample["speed"]
@@ -126,7 +133,9 @@ class ProgressTracker:
                 "frame": None, "age_seconds": None,
             }
         age = max(0, round(now - received))
-        stage = "stalled" if age > self.STALE_SECONDS else (
+        frozen = (item["last_frame"] is not None and
+                  now - item["advanced"] > self.STALE_SECONDS)
+        stage = "stalled" if age > self.STALE_SECONDS or frozen else (
             "slow" if item["slow_count"] >= 2 else "healthy"
         )
         return {"state": stage, "age_seconds": age, **item["sample"]}

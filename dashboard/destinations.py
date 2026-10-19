@@ -19,6 +19,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from cryptography.fernet import Fernet, InvalidToken
+from telemetry import ProgressTracker
 
 PLATFORMS = ("telegram", "instagram", "aparat", "youtube", "twitch", "custom")
 MAX_DESTINATIONS = 32
@@ -93,6 +94,7 @@ class DestinationSupervisor:
         self.data_dir = Path(data_dir)
         self.lock = threading.RLock()
         self.processes = {}
+        self.tracker = ProgressTracker()
         self.retry_after = {}
         self.errors = {}
         self.stop_event = threading.Event()
@@ -110,14 +112,17 @@ class DestinationSupervisor:
         target = server + "/" + key.lstrip("/")
         return [
             "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "quiet",
+            "-nostats", "-stats_period", "2", "-progress", "pipe:1",
+            "-rw_timeout", "15000000",
             "-i", "rtmp://mediamtx:1935/" + row["channel_id"],
             "-map", "0:v:0", "-map", "0:a?", "-c:v", "copy",
-            "-c:a", "copy", "-f", "flv", "-flvflags", "no_duration_filesize", target,
+            "-c:a", "copy", "-rw_timeout", "15000000", "-f", "flv", "-flvflags", "no_duration_filesize", target,
         ]
 
     def stop(self, destination_id):
         with self.lock:
             proc = self.processes.pop(destination_id, None)
+            self.tracker.detach(destination_id, proc.pid if proc else None)
             if proc is None or proc.poll() is not None:
                 return
             try:
@@ -146,6 +151,11 @@ class DestinationSupervisor:
                 elif proc.poll() is not None:
                     self.errors[ident] = "اتصال مقصد قطع شد؛ تلاش مجدد خودکار فعال است."
                     self.processes.pop(ident, None)
+                    self.tracker.detach(ident, proc.pid)
+                elif self.tracker.snapshot(ident, proc.pid, True)["state"] in {"stalled", "no-data"}:
+                    self.stop(ident)
+                    self.errors[ident] = "پیشرفت ارسال متوقف شد؛ اتصال مجدد انجام می‌شود."
+                    self.retry_after[ident] = time.monotonic() + 3
             for ident, row in active.items():
                 if ident in self.processes or time.monotonic() < self.retry_after.get(ident, 0):
                     continue
@@ -154,10 +164,11 @@ class DestinationSupervisor:
                     # No secret-bearing argv or ffmpeg diagnostic output is logged.
                     process = subprocess.Popen(
                         command, stdin=subprocess.DEVNULL,
-                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                         start_new_session=True, close_fds=True
                     )
                     self.processes[ident] = process
+                    self.tracker.attach(ident, process)
                     self.errors.pop(ident, None)
                 except (OSError, ValueError) as error:
                     self.errors[ident] = str(error)
@@ -166,8 +177,11 @@ class DestinationSupervisor:
     def status(self, ident):
         with self.lock:
             process = self.processes.get(ident)
+            running = process is not None and process.poll() is None
+            progress = self.tracker.snapshot(ident, process.pid if process else None, running)
             return {
-                "sending": process is not None and process.poll() is None,
+                "sending": running and progress["state"] in {"healthy", "slow"} and (progress["frame"] or 0) > 0,
+                "transport": progress,
                 "error": self.errors.get(ident),
             }
 

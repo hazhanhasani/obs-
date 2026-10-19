@@ -38,6 +38,15 @@ class ProgressTelemetryTests(unittest.TestCase):
         self.assertEqual(self.tracker.snapshot("main", 101, True)["age_seconds"], 21)
         self.assertEqual(self.tracker.snapshot("main", 101, False)["state"], "stopped")
 
+    def test_fresh_reports_with_frozen_frame_are_stalled(self):
+        self.tracker.attach("main", SimpleNamespace(pid=101, stdout=None))
+        self.tracker.record("main", 101, {"frame": "100", "speed": "1x"})
+        self.now[0] += 21
+        self.tracker.record("main", 101, {"frame": "100", "speed": "1x"})
+        self.assertEqual(self.tracker.snapshot("main", 101, True)["state"], "stalled")
+        self.tracker.record("main", 101, {"frame": "101", "speed": "1x"})
+        self.assertEqual(self.tracker.snapshot("main", 101, True)["state"], "healthy")
+
     def test_two_slow_samples_required_to_warn(self):
         self.tracker.attach("news", SimpleNamespace(pid=202, stdout=None))
         self.tracker.record("news", 202, {"speed": "0.82x", "fps": "20", "frame": "5"})

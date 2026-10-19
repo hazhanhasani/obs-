@@ -184,6 +184,11 @@ class Controller:
                     finished = self.processes.pop(channel)
                     self.tracker.detach(channel, finished.pid)
                     self.resource_processes.pop(channel, None)
+                elif self.tracker.snapshot(channel, self.processes[channel].pid, True)["state"] in {"stalled", "no-data"}:
+                    # Recover a frozen publisher, never restart merely slow encoding.
+                    self.stop(channel)
+                    self.errors[channel] = "پیشرفت انکودر متوقف شد؛ بازیابی خودکار فعال است."
+                    self.next_retry[channel] = time.monotonic() + 8
             for channel, row in enabled.items():
                 if channel in self.processes or time.monotonic() < self.next_retry.get(channel, 0):
                     continue
