@@ -72,7 +72,7 @@
       const m=byFile(l.media_file);
       const css='left:'+l.x+'%;top:'+l.y+'%;width:'+l.w+'%;height:'+l.h+'%;opacity:'+(l.opacity/100)+';';
       return '<div class="scene-item '+(selected===l.layer_id?"selected":"")+'" data-layer="'+safe(l.layer_id)+'" style="'+css+'" tabindex="0" role="button" aria-label="انتخاب لایه '+(i+1)+'">'
-        +'<img draggable="false" src="'+poster(l.media_file)+'" style="object-fit:'+safe(l.fit)+'" alt="">'
+        +'<img draggable="false" src="'+poster(l.media_file)+'" style="object-fit:'+(l.fit==="stretch"?"fill":safe(l.fit))+'" alt="">'
         +(m?.kind==="video"?'<span class="scene-video-chip"><i class="bi bi-play-fill"></i> ویدئو</span>':'')
         +'<span class="scene-item-name">'+(i+1)+'</span><span class="scene-handle" title="تغییر اندازه"></span></div>';
     });
