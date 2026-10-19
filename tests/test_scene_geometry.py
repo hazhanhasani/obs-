@@ -20,11 +20,26 @@ class SceneGeometryTests(unittest.TestCase):
         self.assertLessEqual(bounds.x + bounds.width, 1280)
         self.assertLessEqual(bounds.y + bounds.height, 720)
 
+    def test_offcanvas_bounds_preserve_full_raster_and_negative_position(self):
+        bounds = layer_bounds(dict(x=-20, y=110, w=50, h=40))
+        self.assertEqual(bounds, LayerBounds(-256, 792, 640, 288))
+        self.assertEqual(ffmpeg_sizing(bounds, "stretch"), "scale=640:288,format=rgba")
+        wide = layer_bounds(dict(x=90, y=-40, w=120, h=130), 720, 1280)
+        self.assertEqual((wide.x, wide.y, wide.width, wide.height), (648,-512,864,1664))
+
+    def test_fractional_geometry_is_stable(self):
+        bounds = layer_bounds(dict(x=-2.5,y=0.5,w=35.5,h=25.5))
+        self.assertEqual(bounds.x,-32)
+        self.assertEqual(bounds.y,4)
+        self.assertEqual(bounds.width,454)
+        self.assertEqual(bounds.height,182)
+
+
     def test_rejects_off_canvas_and_invalid_extent(self):
         for item in (dict(x=90,y=0,w=20,h=30),
-                     dict(x=0,y=95,w=30,h=10),
+                     dict(x=-250,y=95,w=30,h=10),
                      dict(x=0,y=0,w=0,h=20),
-                     dict(x=-1,y=0,w=5,h=5)):
+                     dict(x=-1,y=0,w=250,h=5)):
             with self.subTest(item=item), self.assertRaises(ValueError):
                 layer_bounds(item)
 
