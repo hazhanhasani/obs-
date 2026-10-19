@@ -45,7 +45,7 @@
     </nav>
     <div class="sidebar-footer">
       <div class="small-online"><span class="dot green"></span> سرویس مستقل روی VPS</div>
-      <small>نسخه آزمایشی v0.5.3</small>
+      <small>نسخه آزمایشی v0.6.0</small>
     </div>
   </aside>
 
@@ -104,6 +104,15 @@
             <p id="stream-error" class="stream-error"></p>
           </div>
         </div>
+
+        <section class="panel encoder-monitor">
+          <div class="panel-heading">
+            <div><p class="eyebrow">ENCODER HEALTH / PROCESS MONITORING</p><h3>سلامت پردازش پخش</h3></div>
+            <span id="encoder-headline" class="caption-mini">در انتظار داده</span>
+          </div>
+          <div id="encoder-summary" class="encoder-summary" aria-live="polite">هنوز اطلاعاتی از پردازش دریافت نشده است.</div>
+          <p class="encoder-disclaimer">این شاخص‌ها از خود FFmpeg روی سرور دریافت می‌شوند و تأیید پخش در تلگرام، آپارات یا سایر مقصدها نیستند.</p>
+        </section>
 
         <section class="panel playlist-panel">
           <div class="panel-heading"><div><p class="eyebrow">MEDIA LIBRARY</p><h3>صف پخش و رسانه‌ها</h3></div><button class="soft-button" data-goto="media"><i class="bi bi-plus-circle"></i> افزودن رسانه</button></div>
@@ -212,7 +221,11 @@
 
       <section data-view="media" hidden><div class="section-title"><div><p class="eyebrow">MEDIA MANAGER</p><h2>کتابخانه رسانه</h2></div></div><div class="panel upload-panel"><div class="upload-icon"><i class="bi bi-cloud-arrow-up"></i></div><h3>آپلود ویدئو روی سرور</h3><p>MP4 / MKV / MOV با کدک H.264 و تصویر PNG/JPG/WebP؛ رسانه روی VPS ذخیره خواهد شد.</p><form id="upload-form"><input type="file" id="media-file" accept=".mp4,.mkv,.mov,.png,.jpg,.jpeg,.webp" required><button type="submit" class="primary" id="upload-btn"><i class="bi bi-upload"></i> بارگذاری فایل</button></form><div class="upload-progress" id="upload-progress-wrap" hidden><div class="upload-progress-label"><span id="upload-phase">در حال ارسال فایل</span><strong id="upload-percent">۰٪</strong></div><progress id="upload-progress" value="0" max="100"></progress><button id="upload-cancel" type="button" class="mini-action danger">لغو آپلود</button></div><p class="hint" id="upload-result" aria-live="polite"></p></div><div class="panel"><div class="panel-heading"><h3>فایل‌های موجود</h3><span id="media-count"></span></div><div class="table-wrap"><table><thead><tr><th>نام فایل</th><th>زمان</th><th>حجم</th><th>عملیات</th></tr></thead><tbody id="media-library"></tbody></table></div></div></section>
 
-      <section data-view="system" hidden><div class="section-title"><div><p class="eyebrow">SERVER OPERATIONS</p><h2>وضعیت سیستم</h2></div></div><div class="system-grid"><div class="panel"><h3>اطلاعات اجرا</h3><div class="info-row"><span>Media Engine</span><b>FFmpeg + MediaMTX</b></div><div class="info-row"><span>Streaming Delivery</span><b>HLS via Caddy</b></div><div class="info-row"><span>کنترل مدیریت</span><b>Session + CSRF</b></div><div class="info-row"><span>منابع و وضعیت کانال‌ها</span><b>SQLite / VPS</b></div></div><div class="panel"><h3>ملاحظات انتشار</h3><p class="system-text">لینک‌های پخش در این نسخه عمومی‌اند؛ برای محتوای خصوصی و پولی باید کنترل دسترسی HLS اضافه شود. برای HTTPS، دامنه را در فایل env تنظیم کنید.</p><p class="system-text">این داشبورد برای کنترل واقعی کانال‌هاست؛ زمان‌بندی خودکار هنوز پیاده‌سازی نشده است؛ مدیریت خروجی‌های چندمقصدی در نسخه آزمایشی فعال است.</p></div></div></section>
+      <section data-view="system" hidden><div class="section-title"><div><p class="eyebrow">SERVER OPERATIONS</p><h2>وضعیت سیستم</h2></div></div><div class="system-grid"><div class="panel"><h3>اطلاعات اجرا</h3><div class="info-row"><span>Media Engine</span><b>FFmpeg + MediaMTX</b></div><div class="info-row"><span>Streaming Delivery</span><b>HLS via Caddy</b></div><div class="info-row"><span>کنترل مدیریت</span><b>Session + CSRF</b></div><div class="info-row"><span>منابع و وضعیت کانال‌ها</span><b>SQLite / VPS</b></div></div><div class="panel"><h3>ملاحظات انتشار</h3><p class="system-text">لینک‌های پخش در این نسخه عمومی‌اند؛ برای محتوای خصوصی و پولی باید کنترل دسترسی HLS اضافه شود. برای HTTPS، دامنه را در فایل env تنظیم کنید.</p><p class="system-text">این داشبورد برای کنترل واقعی کانال‌هاست؛ زمان‌بندی خودکار هنوز پیاده‌سازی نشده است؛ مدیریت خروجی‌های چندمقصدی در نسخه آزمایشی فعال است.</p></div></div><section class="panel encoder-detail-panel">
+  <div class="panel-heading"><h3><i class="bi bi-activity"></i> سلامت پردازش کانال‌ها</h3><span class="caption-mini">بروزرسانی هر ۵ ثانیه</span></div>
+  <div class="table-wrap"><table class="encoder-table"><thead><tr><th>کانال</th><th>وضعیت</th><th>FPS</th><th>Speed</th><th>CPU</th><th>RAM</th><th>آخرین گزارش</th></tr></thead><tbody id="encoder-detail"></tbody></table></div>
+  <p class="encoder-disclaimer">این داده‌ها مربوط به پردازش‌های FFmpeg هستند. وضعیت «سالم» تنها به معنای دریافت مرتب آمار Encode است؛ وضعیت انتشار در پلتفرم‌های مقصد جداگانه بررسی می‌شود. درصد CPU هر فرآیند بر اساس یک هسته محاسبه می‌شود و ممکن است بیشتر از ۱۰۰٪ باشد.</p>
+</section></section>
     </main>
   </div>
 </div>
