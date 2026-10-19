@@ -114,3 +114,9 @@
 @media(max-width:620px){
   .scene-draft-indicator{font-size:10px;max-width:80%;top:5px;right:5px;padding:4px 7px}
 }
+
+/* OBS-inspired safe-area: 5% horizontal and 8% vertical composition margins. */
+.scene-safe-area{position:absolute;inset:8% 5%;z-index:12;border:1px dashed #ffffffb0;
+  box-shadow:0 0 0 1px #0008;border-radius:2px;pointer-events:none}
+.scene-safe-area[hidden]{display:none}
+.scene-safe-toggle[aria-pressed="true"]{background:#344151;color:#fff;border-color:#8fa6b8}
