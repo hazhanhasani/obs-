@@ -17,6 +17,9 @@ services:
       SESSION_SECRET: "${SESSION_SECRET:?Set SESSION_SECRET in .env}"
       COOKIE_SECURE: "${COOKIE_SECURE:-true}"
       MAX_UPLOAD_MB: "${MAX_UPLOAD_MB:-1024}"
+      SCENE_ENCODER_PRESET: "${SCENE_ENCODER_PRESET:-ultrafast}"
+      SCENE_ENCODER_THREADS: "${SCENE_ENCODER_THREADS:-2}"
+      SCENE_VIDEO_BITRATE_KBPS: "${SCENE_VIDEO_BITRATE_KBPS:-2500}"
     volumes:
       - ./media:/media
       - dashboard_data:/data
