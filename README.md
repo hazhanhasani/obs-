@@ -6,7 +6,7 @@
 
 **Stream once. Run continuously. Manage from anywhere.**
 
-[![Version](https://img.shields.io/badge/version-0.5.0--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
+[![Version](https://img.shields.io/badge/version-0.5.1--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Self Hosted](https://img.shields.io/badge/deployment-self--hosted-172436?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Powered by](https://img.shields.io/badge/media-FFmpeg%20%2B%20MediaMTX-19bd93?style=flat-square)](https://github.com/hazhanhasani/obs-)
 
@@ -18,7 +18,7 @@
 
 ## ✨ Design preview
 
-> **Concept designs — not screenshots from a tested deployment.** Some controls, counters, and features shown here are illustrative and are not yet available in the v0.5.0 alpha. These images show the approved design direction.
+> **Concept designs — not screenshots from a tested deployment.** Some controls, counters, and features shown here are illustrative and are not yet available in the v0.5.1 alpha. These images show the approved design direction.
 
 <div align="center">
 
@@ -47,7 +47,7 @@
 
 Unlike a traditional desktop-based streaming setup, **StreamCore runs its media pipeline on your own Linux VPS**. Your computer and phone do not need to stay online. The browser is only used to configure and monitor your streams.
 
-| Capability | v0.5.0 alpha |
+| Capability | v0.5.1 alpha |
 |:--|:--|
 | Server-generated live test broadcast | ✅ Implemented |
 | Upload H.264 videos and PNG/JPG/WebP still images | ✅ Implemented |
@@ -64,6 +64,23 @@ Unlike a traditional desktop-based streaming setup, **StreamCore runs its media 
 | External live input URL ingest | 🛠️ Planned |
 | Viewer analytics and advanced graphs | 🛠️ Planned |
 | Protected paid/private HLS | 🛠️ Planned |
+
+## ⚡ VPS performance and safe scenes — v0.5.1-alpha
+
+This release adds an optional shared-VPS encoder profile: **ultrafast H.264,
+2 encoding/filter threads, and 2500 kbps video** at 720p/25 fps by default.
+Presets `ultrafast`, `superfast`, `veryfast` are explicitly allowlisted.
+
+Scene edits now validate files, image effects, output configuration and Persian
+font rendering **before stopping an active stream or updating SQLite**, so
+invalid changes return a clear error without replacing the running scene.
+
+A GitHub Actions smoke test now encodes a short 720p scene with a Persian text
+layer and animated logo using real FFmpeg. This is **not a verified live VPS
+benchmark**: stream continuity and CPU changes still need deployment checks.
+
+Read the [performance and deployment runbook](docs/PERFORMANCE.md) and
+[Text & Effects Guide](docs/TEXT_EFFECTS.md).
 
 ## ✍️ Text overlays and animated scenes — v0.5.0
 
@@ -221,7 +238,7 @@ For full configuration and safety notes, see the [deployment guide](docs/DEPLOYM
 
 ## 📜 License and status
 
-**Development status:** v0.5.0 alpha — not yet validated for production deployment. No open-source license has been granted for this repository. All rights reserved unless a license is added.
+**Development status:** v0.5.1 alpha — not yet validated for production deployment. No open-source license has been granted for this repository. All rights reserved unless a license is added.
 
 <div align="center">
 
