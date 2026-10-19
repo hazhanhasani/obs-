@@ -45,7 +45,7 @@
     </nav>
     <div class="sidebar-footer">
       <div class="small-online"><span class="dot green"></span> سرویس مستقل روی VPS</div>
-      <small>نسخه آزمایشی v0.4.1</small>
+      <small>نسخه آزمایشی v0.5.0</small>
     </div>
   </aside>
 
@@ -143,7 +143,8 @@
             <div><label class="field-label" for="scene-media">عکس یا ویدئوی جدید</label><select id="scene-media" class="field"></select></div>
           </div>
           <div class="scene-controls">
-            <button id="scene-add" class="secondary" type="button"><i class="bi bi-plus-circle"></i> افزودن لایه</button>
+            <button id="scene-add" class="secondary" type="button"><i class="bi bi-plus-circle"></i> افزودن رسانه</button>
+            <button id="scene-add-text" class="secondary" type="button"><i class="bi bi-fonts"></i> افزودن متن</button>
             <button id="scene-open-media" class="outline" style="width:auto;margin:0" type="button"><i class="bi bi-cloud-upload"></i> آپلود رسانه</button>
             <button id="scene-save" class="primary" type="button" disabled><i class="bi bi-save"></i> ذخیره و اعمال صحنه</button>
           </div>
@@ -160,7 +161,7 @@
             <p class="scene-tip">این پیش‌نمایش برای تنظیم محل و اندازه از تصاویر ثابت استفاده می‌کند. خروجی متحرک نهایی بعد از ذخیره در داشبورد نمایش داده می‌شود. برای تغییر اندازه گوشه نارنجی هر لایه را بکش.</p>
           </div>
           <div class="panel">
-            <div class="scene-layout-bar"><h3>لایه‌های صحنه</h3><span class="caption-mini" id="scene-counter">۰ / ۸ لایه</span></div>
+            <div class="scene-layout-bar"><h3>لایه‌های صحنه</h3><span class="caption-mini" id="scene-counter">۰ رسانه · ۰ متن</span></div>
             <div class="scene-layer-list" id="scene-layer-list"></div>
             <div class="scene-props" id="scene-properties" hidden>
               <h4 id="scene-current-label">تنظیمات لایه</h4>
@@ -170,11 +171,33 @@
                 <div><label class="field-label" for="scene-w">عرض (%)</label><input id="scene-w" class="field" type="number" min="5" max="100" step="1"></div>
                 <div><label class="field-label" for="scene-h">ارتفاع (%)</label><input id="scene-h" class="field" type="number" min="5" max="100" step="1"></div>
                 <div><label class="field-label" for="scene-opacity">شفافیت (%)</label><input id="scene-opacity" class="field" type="number" min="10" max="100" step="1"></div>
-                <div><label class="field-label" for="scene-fit">نحوه نمایش تصویر</label><select id="scene-fit" class="field"><option value="contain">نمایش کامل (Contain)</option><option value="cover">پرکردن کادر (Cover)</option></select></div>
+                <div id="scene-fit-container"><label class="field-label" for="scene-fit">نحوه نمایش تصویر</label><select id="scene-fit" class="field"><option value="contain">نمایش کامل (Contain)</option><option value="cover">پرکردن کادر (Cover)</option></select></div>
+                <div><label class="field-label" for="scene-effect">افکت ورود / نمایش</label><select id="scene-effect" class="field">
+                  <option value="none">بدون افکت</option><option value="fade">Fade</option>
+                  <option value="slide-left">ورود از چپ</option><option value="slide-right">ورود از راست</option>
+                  <option value="blink">چشمک‌زن</option>
+                </select></div>
+                <div><label class="field-label" for="scene-start">شروع نمایش (ثانیه)</label><input id="scene-start" class="field" type="number" min="0" max="3600" step="0.5" value="0"></div>
+                <div><label class="field-label" for="scene-duration">مدت نمایش (۰=دائمی)</label><input id="scene-duration" class="field" type="number" min="0" max="3600" step="0.5" value="0"></div>
+                <div><label class="field-label" for="scene-repeat">تکرار هر چند ثانیه (۰=خیر)</label><input id="scene-repeat" class="field" type="number" min="0" max="3600" step="0.5" value="0"></div>
               </div>
+              <div id="scene-text-properties" hidden>
+                <div class="scene-text-fields">
+                  <label class="field-label" for="scene-text-input">متن فارسی یا انگلیسی</label>
+                  <textarea id="scene-text-input" class="field" rows="3" maxlength="240" dir="auto" placeholder="متن مورد نظر را بنویسید"></textarea>
+                </div>
+                <div class="scene-property-grid">
+                  <div><label class="field-label" for="scene-font-size">اندازه قلم (px)</label><input id="scene-font-size" class="field" type="number" min="12" max="110" step="1" value="46"></div>
+                  <div><label class="field-label" for="scene-text-color">رنگ متن</label><input id="scene-text-color" class="field" type="color" value="#ffffff"></div>
+                  <div><label class="field-label" for="scene-text-background">پس‌زمینه متن</label><select id="scene-text-background" class="field"><option value="transparent">شفاف</option><option value="#101925">سرمه‌ای</option><option value="#000000">مشکی</option><option value="#ffffff">سفید</option></select></div>
+                  <div><label class="field-label" for="scene-text-align">تراز متن</label><select id="scene-text-align" class="field"><option value="right">راست</option><option value="center">وسط</option><option value="left">چپ</option></select></div>
+                  <div><label class="field-label" for="scene-text-outline">ضخامت دورخط</label><input id="scene-text-outline" class="field" type="number" min="0" max="5" step="1" value="2"></div>
+                </div>
+              </div>
+              <button id="scene-effect-preview" type="button" class="outline"><i class="bi bi-play-circle"></i> نمایش آزمایشی افکت</button>
             </div>
             <p id="scene-properties-empty" class="empty-state">برای ویرایش ابعاد و موقعیت، یک لایه را انتخاب کنید.</p>
-            <p class="scene-tip">لایه‌ها به ترتیب از پایین به بالا روی هم قرار می‌گیرند. در هر کانال حداکثر سه ویدئوی هم‌زمان و پنج تصویر مجاز است. پخش اصلی از VPS انجام می‌شود.</p>
+            <p class="scene-tip">لایه‌ها به ترتیب از پایین به بالا روی هم قرار می‌گیرند. در هر کانال حداکثر سه ویدئوی هم‌زمان، پنج تصویر و پنج متن مجاز است. افکت Fade در پخش‌های تکرارشونده فقط در اولین نمایش متحرک می‌شود. پخش اصلی از VPS انجام می‌شود.</p>
           </div>
         </div>
       </section>
