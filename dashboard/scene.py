@@ -1,4 +1,4 @@
-"""Safe 720p composited scenes for StreamCore.
+"""Safe configurable-aspect composited scenes for StreamCore.
 
 One FFmpeg encoder creates a single RTMP output. Independent multistream
 relays copy that encoded feed; each additional video layer costs CPU to decode.
@@ -9,6 +9,7 @@ import re
 import subprocess
 import tempfile
 from pathlib import Path
+from scene_geometry import canvas_size, CANVAS_PRESETS
 from text_effects import (MAX_TEXT_LAYERS, COLOR, check_timing,
                           render_text_layer, effect_filters)
 
@@ -43,6 +44,10 @@ def init_scene_db(connect):
             if name not in columns:
                 db.execute(f"ALTER TABLE scene_layers ADD COLUMN {name} "
                            f"{'TEXT' if name == 'effect' else 'REAL'} NOT NULL DEFAULT {default}")
+        db.execute("""CREATE TABLE IF NOT EXISTS scene_settings (
+            channel_id TEXT PRIMARY KEY,
+            canvas_preset TEXT NOT NULL DEFAULT 'landscape'
+        )""")
         db.execute("""CREATE TABLE IF NOT EXISTS scene_text_layers (
             channel_id TEXT NOT NULL, layer_id TEXT NOT NULL, text TEXT NOT NULL,
             x INTEGER NOT NULL, y INTEGER NOT NULL,
@@ -75,7 +80,13 @@ def scene_for(connect, channel):
             "opacity,effect,start_sec,duration_sec,repeat_sec,layer_order "
             "FROM scene_text_layers WHERE channel_id=? ORDER BY layer_order", (channel,)
         )]
+        preset_row = db.execute(
+            "SELECT canvas_preset FROM scene_settings WHERE channel_id=?", (channel,)
+        ).fetchone()
+        preset = preset_row["canvas_preset"] if preset_row else "landscape"
+        width, height = canvas_size(preset)
         return {"channel":channel, "mode":row["mode"],
+                "canvas_preset":preset, "canvas_width":width, "canvas_height":height,
                 "base_file":row["file"] if row["mode"]=="scene" else None,
                 "layers":layers, "text_layers":text_layers, "desired":bool(row["desired"])}
 
@@ -133,8 +144,10 @@ def validate_text_layers(items):
         check_timing(item.effect, item.start_sec, item.duration_sec, item.repeat_sec)
 
 
-def save_scene(connect, channel, base_file, layers, text_layers=None):
+def save_scene(connect, channel, base_file, layers, text_layers=None, canvas_preset=None):
     media=validate_scene(connect,base_file,layers)
+    if canvas_preset is not None:
+        canvas_size(canvas_preset)
     if text_layers is not None:
         validate_text_layers(text_layers)
     with connect() as db:
@@ -160,6 +173,11 @@ def save_scene(connect, channel, base_file, layers, text_layers=None):
                   t.background,t.align,t.outline,t.opacity,t.effect,t.start_sec,
                   t.duration_sec,t.repeat_sec,i) for i,t in enumerate(text_layers)]
             )
+        if canvas_preset is not None:
+            db.execute("""INSERT INTO scene_settings(channel_id,canvas_preset)
+                          VALUES(?,?)
+                          ON CONFLICT(channel_id) DO UPDATE SET canvas_preset=excluded.canvas_preset""",
+                       (channel, canvas_preset))
         db.execute("UPDATE channels SET mode='scene',file=? WHERE id=?", (base_file,channel))
     return media
 
@@ -171,6 +189,7 @@ def remove_scene(connect, channel):
     with connect() as db:
         db.execute("DELETE FROM scene_layers WHERE channel_id=?", (channel,))
         db.execute("DELETE FROM scene_text_layers WHERE channel_id=?", (channel,))
+        db.execute("DELETE FROM scene_settings WHERE channel_id=?", (channel,))
 
 def _media_file(media_root, filename):
     if not filename or Path(filename).name != filename:
@@ -214,23 +233,24 @@ def scene_encoder_profile():
     return preset, threads, bitrate
 
 
-def preflight_scene(media_root, base_file, layers, text_layers):
+def preflight_scene(media_root, base_file, layers, text_layers, canvas_preset="landscape"):
     """Catch missing files, unsupported fonts and invalid filter expressions BEFORE
     persisting the new layout or interrupting an active channel.
     """
     scene_encoder_profile()
+    width, height = canvas_size(canvas_preset)
     if base_file:
         _media_file(media_root, base_file)
     for i, layer in enumerate(layers):
         _media_file(media_root, layer.media_file)
         item = layer.model_dump() if hasattr(layer, "model_dump") else vars(layer)
-        effect_filters(item, i + 1, "v0", i + 1)
+        effect_filters(item, i + 1, "v0", i + 1, width, height)
     if text_layers:
         with tempfile.TemporaryDirectory(prefix="streamcore-scene-check-") as directory:
             for i, layer in enumerate(text_layers):
                 item = layer.model_dump() if hasattr(layer, "model_dump") else vars(layer)
-                render_text_layer(item, Path(directory) / f"text_{i}.png")
-                effect_filters({**item, "fit": "contain"}, i + 1, "v0", i + 1)
+                render_text_layer(item, Path(directory) / f"text_{i}.png", width, height)
+                effect_filters({**item, "fit": "contain"}, i + 1, "v0", i + 1, width, height)
 
 
 def scene_command(connect, channel, base_file, media_root, target, text_cache=None, scene_override=None):
@@ -259,15 +279,20 @@ def scene_command(connect, channel, base_file, media_root, target, text_cache=No
         text_layers = [dict(item) for item in scene_override["text_layers"]]
     if len(media) > MAX_LAYERS or len(text_layers) > MAX_TEXT_LAYERS:
         raise ValueError("تعداد لایه‌های صحنه بیش از حد مجاز است.")
+    if scene_override is None:
+        preset = scene_for(connect, channel)["canvas_preset"]
+    else:
+        preset = scene_override.get("canvas_preset") or scene_for(connect, channel)["canvas_preset"]
+    width, height = canvas_size(preset)
     if base_file:
         base_path = _media_file(media_root, base_file)
         args = ["-re", "-stream_loop", "-1", "-i", base_path]
         base_has_audio = _audio_present(base_path)
     else:
-        args = ["-re", "-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=25"]
+        args = ["-re", "-f", "lavfi", "-i", f"testsrc2=size={width}x{height}:rate=25"]
         base_has_audio = False
-    graph = ["[0:v]fps=25,scale=1280:720:force_original_aspect_ratio=decrease,"
-             "pad=1280:720:(ow-iw)/2:(oh-ih)/2:color=black,"
+    graph = [f"[0:v]fps=25,scale={width}:{height}:force_original_aspect_ratio=decrease,"
+             f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black,"
              "setsar=1,setpts=PTS-STARTPTS,format=rgba[v0]"]
     previous = "v0"
     overlay_index = 0
@@ -280,7 +305,7 @@ def scene_command(connect, channel, base_file, media_root, target, text_cache=No
         else:
             raise ValueError("نوع رسانه صحنه نامعتبر است.")
         overlay_index += 1
-        graph.extend(effect_filters(layer, overlay_index, previous, overlay_index))
+        graph.extend(effect_filters(layer, overlay_index, previous, overlay_index, width, height))
         previous = f"v{overlay_index}"
     cache = Path(text_cache) if text_cache else Path(media_root).parent / "rendered_text"
     for layer in text_layers:
@@ -290,12 +315,12 @@ def scene_command(connect, channel, base_file, media_root, target, text_cache=No
         ):
             raise ValueError("شناسه لایه متنی معتبر نیست.")
         check_timing(layer["effect"],layer["start_sec"],layer["duration_sec"],layer["repeat_sec"])
-        image = render_text_layer(layer,cache / f"{channel}_{layer['layer_id']}.png")
+        image = render_text_layer(layer,cache / f"{channel}_{layer['layer_id']}.png", width, height)
         args += ["-re", "-loop", "1", "-framerate", str(FPS), "-i", image]
         overlay_index += 1
         # PNG was rendered at the final dimensions; keep its aspect ratio.
         layer["fit"] = "contain"
-        graph.extend(effect_filters(layer, overlay_index, previous, overlay_index))
+        graph.extend(effect_filters(layer, overlay_index, previous, overlay_index, width, height))
         previous = f"v{overlay_index}"
     graph.append(f"[{previous}]format=yuv420p[vout]")
     preset, threads, bitrate = scene_encoder_profile()
