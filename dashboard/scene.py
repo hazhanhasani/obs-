@@ -99,7 +99,8 @@ def validate_scene(connect, base_file, layers):
     for l in layers:
         if l.x+l.w>100 or l.y+l.h>100:
             raise ValueError("لایه از کادر ۱۶:۹ خارج می‌شود؛ موقعیت و اندازه را اصلاح کنید.")
-        check_timing(l.effect, l.start_sec, l.duration_sec, l.repeat_sec)
+        check_timing(getattr(l, "effect", "none"), getattr(l, "start_sec", 0),
+                     getattr(l, "duration_sec", 0), getattr(l, "repeat_sec", 0))
         if l.fit not in SUPPORTED_FITS:
             raise ValueError("حالت تناسب تصویر نامعتبر است.")
         if media[l.media_file]=="video":vcount+=1
@@ -144,7 +145,8 @@ def save_scene(connect, channel, base_file, layers, text_layers=None):
             "effect,start_sec,duration_sec,repeat_sec,layer_order)"
             " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             [(channel,l.layer_id,l.media_file,l.x,l.y,l.w,l.h,l.fit,l.opacity,
-              l.effect,l.start_sec,l.duration_sec,l.repeat_sec,i)
+              getattr(l,"effect","none"),getattr(l,"start_sec",0),
+              getattr(l,"duration_sec",0),getattr(l,"repeat_sec",0),i)
              for i,l in enumerate(layers)]
         )
         if text_layers is not None:
