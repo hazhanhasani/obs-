@@ -34,16 +34,45 @@ env_value() {
 
 get_domain() {
   local default="$1" input=""
-  [[ -r /dev/tty ]] || die "An interactive SSH terminal is required."
+  [[ -r /dev/tty ]] || die "Interactive SSH terminal unavailable. Use --domain YOUR_DOMAIN instead."
   while :; do
     printf 'Enter domain%s: ' "$(test -n "$default" && printf ' [%s]' "$default" || true)" > /dev/tty
-    IFS= read -r input < /dev/tty || die "Could not read from terminal"
-    input="$(printf '%s' "$input" | tr '[:upper:]' '[:lower:]')"
-    input="$(printf '%s' "$input" | sed 's/\.$//')"
+    if ! IFS= read -r -t 90 input < /dev/tty; then
+      die "Terminal input timeout (90 seconds). Re-run with --domain YOUR_DOMAIN."
+    fi
+    input="$(printf '%s' "$input" | tr -d '\r' | tr '[:upper:]' '[:lower:]')"
+    input="${input%.}"
     [[ -n "$input" ]] || input="$default"
-    if valid_domain "$input"; then printf '%s' "$input"; return; fi
+    if valid_domain "$input"; then
+      DOMAIN_INPUT="$input"
+      info "Domain accepted: $DOMAIN_INPUT"
+      return 0
+    fi
     printf 'Invalid domain. Use a public DNS hostname without protocol/path.\n' > /dev/tty
   done
+}
+
+parse_domain_arg() {
+  DOMAIN_CLI="${STREAMCORE_DOMAIN:-}"
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --domain|-d)
+        [[ "$#" -ge 2 && -n "$2" ]] || die "Missing value for --domain"
+        DOMAIN_CLI="$2"
+        shift 2
+        ;;
+      --help|-h)
+        printf 'Usage: bash install.sh [--domain YOUR_DOMAIN]\n'
+        exit 0
+        ;;
+      *) die "Unknown option: $1" ;;
+    esac
+  done
+  if [[ -n "$DOMAIN_CLI" ]]; then
+    DOMAIN_CLI="$(printf '%s' "$DOMAIN_CLI" | tr -d '\r' | tr '[:upper:]' '[:lower:]')"
+    DOMAIN_CLI="${DOMAIN_CLI%.}"
+    valid_domain "$DOMAIN_CLI" || die "Invalid domain: use a public DNS hostname."
+  fi
 }
 
 prerequisites() {
@@ -67,8 +96,8 @@ dns_check() {
   info "Checking DNS A record against VPS public IPv4..."
   public="$(curl -4 -fsS --connect-timeout 6 --max-time 12 https://api.ipify.org)" || die "Cannot detect public IPv4."
   [[ "$public" =~ ^[0-9.]+$ ]] || die "Invalid public IPv4."
-  addresses="$(getent ahostsv4 "$domain" | awk '$2 == "STREAM" {print $1}' | sort -u || true)"
-  [[ -n "$addresses" ]] || die "DNS A record missing. Point $domain to $public, then retry."
+  addresses="$(timeout 15s getent ahostsv4 "$domain" | awk '$2 == "STREAM" {print $1}' | sort -u || true)"
+  [[ -n "$addresses" ]] || die "DNS lookup failed or timed out (15s). Point $domain A record to $public, then retry."
   grep -Fxq "$public" <<< "$addresses" || die "DNS mismatch. Set $domain A record to $public and disable CDN proxying for installation."
   info "DNS IPv4 points to this VPS. Remove stale AAAA records if they point elsewhere."
 }
@@ -174,11 +203,19 @@ check_https() {
 }
 
 main() {
+  parse_domain_arg "$@"
   prerequisites
   info "StreamCore interactive one-command installation"
   local domain old
   old="$(env_value STREAM_DOMAIN)"
-  domain="$(get_domain "$old")"
+  if [[ -n "$DOMAIN_CLI" ]]; then
+    domain="$DOMAIN_CLI"
+    info "Using domain: $domain (non-interactive mode)"
+  else
+    get_domain "$old"
+    domain="$DOMAIN_INPUT"
+  fi
+  info "Domain selected. Checking DNS..."
   dns_check "$domain"
   check_ports
   install_docker
