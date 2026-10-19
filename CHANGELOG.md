@@ -4,6 +4,22 @@ All significant StreamCore changes are documented here.
 
 This project is still in alpha; stable release guarantees and migration automation are not yet available.
 
+## [0.7.3-alpha] — 2026-10-19
+
+### Fixed
+- Resolve legacy CSS specificity override which stacked all four mobile
+  resize handles at the SE (bottom-right) corner.
+- Position actual northwest, northeast, southwest and southeast hit targets
+  independently at mobile and desktop viewports.
+- Preserve the opposite edge on extreme corner resizes and prevent quick-size
+  controls from changing intentionally off-canvas X/Y coordinates.
+- Bust stale Android browser CSS/JS with `v0.7.3` asset query versions.
+
+### Validation
+- Add real headless Chrome DOM hit-target regression to GitHub Actions.
+- Existing FFmpeg and JavaScript tests remain part of the CI gate.
+- Physical Android and live Telegram production verification remain pending.
+
 ## [0.7.2-alpha] — 2026-10-19
 
 ### Fixed
