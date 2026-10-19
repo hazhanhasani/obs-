@@ -16,3 +16,13 @@
 .destination-info small{font-size:10px;color:#93a7ba}.destination-actions{display:flex;gap:7px;flex-wrap:wrap}
 .security-tip{font-size:11px;color:#a4b2c3;line-height:1.9;margin:24px 0 0}
 @media(max-width:770px){.destination-form{grid-template-columns:1fr}.destination-form .key-field{grid-column:auto}.destination-row{flex-wrap:wrap}.destination-actions{width:100%;justify-content:flex-start}}
+
+/* Mobile-friendly upload status; never place media previews above this page. */
+.upload-progress{max-width:530px;margin:18px auto 0;text-align:right}
+.upload-progress-label{display:flex;justify-content:space-between;gap:12px;color:#a9bed1;margin-bottom:9px;font-size:12px}
+.upload-progress-label strong{color:#ff8a46;direction:ltr}
+.upload-progress progress{display:block;width:100%;height:11px;border:0;border-radius:10px;overflow:hidden;accent-color:#ff681e;background:#243142}
+.upload-progress progress::-webkit-progress-bar{background:#243142;border-radius:10px}
+.upload-progress progress::-webkit-progress-value{background:linear-gradient(90deg,#fd7434,#fa4e0e);border-radius:10px}
+.upload-progress #upload-cancel{margin-top:13px}
+#upload-result{overflow-wrap:anywhere;line-height:1.9}
