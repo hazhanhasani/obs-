@@ -266,3 +266,38 @@ test("small mobile logo is not hidden by the resize handle or canvas highlight",
   assert.match(html,/scene-editor\.css\?v=0\.5\.4/);
   assert.match(html,/scene-editor\.js\?v=0\.5\.4/);
 });
+
+test("studio warns when Telegram destination broadcasts a different channel",async()=>{
+  const h=harness();await h.open();
+  const data={
+    media:[{id:7,file:"logo.png",name:"Brand logo",kind:"image"}],
+    channels:[
+      {id:"main",name:"Main",mode:"scene",running:true},
+      {id:"secondary",name:"Secondary",mode:"file",running:true}
+    ],
+    destinations:[{
+      channel_id:"secondary",platform:"telegram",label:"Telegram BlueCoin",enabled:true
+    }]
+  };
+  h.window.StreamCoreScene.sync(data);
+  const status=h.document.getElementById("scene-output-bindings");
+  assert.match(status.textContent,/تلگرام فعال روی کانال دیگر/);
+  assert.match(status.textContent,/secondary/);
+  assert.equal(status.dataset.warning,"true");
+  data.destinations[0].channel_id="main";
+  h.window.StreamCoreScene.sync(data);
+  assert.match(status.textContent,/مقصدهای فعال این کانال/);
+  assert.equal(status.dataset.warning,"false");
+});
+
+test("studio warns when saved channel is not in Scene mode",async()=>{
+  const h=harness();await h.open();
+  h.window.StreamCoreScene.sync({
+    media:[{id:7,file:"logo.png",name:"Brand logo",kind:"image"}],
+    channels:[{id:"main",name:"Main",mode:"file",running:true}],
+    destinations:[]
+  });
+  const status=h.document.getElementById("scene-output-bindings");
+  assert.equal(status.dataset.warning,"true");
+  assert.match(status.textContent,/حالت file/);
+});
