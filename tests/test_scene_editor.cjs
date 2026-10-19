@@ -75,7 +75,7 @@ function harness({canvasWidth=1000,canvasHeight=562.5}={}) {
   const api=async (url,options)=>{
     if(!options)return {base_file:null,layers:[layer]};
     saved=JSON.parse(options.body);
-    return {ok:true,scene:{layers:saved.layers,text_layers:saved.text_layers}};
+    return {ok:true,scene:{canvas_preset:saved.canvas_preset,layers:saved.layers,text_layers:saved.text_layers}};
   };
   window.StreamCoreScene.init({api,toast(){},page(){}});
   const media=[{id:7,file:"logo.png",name:"Brand logo",kind:"image"}];
@@ -367,4 +367,40 @@ test("safe area guides toggle without interfering with layer geometry",async()=>
   button.dispatch("click",{});
   assert.equal(guide.hidden,true);
   assert.equal(button.getAttribute("aria-pressed"),"false");
+});
+
+test("portrait scene changes canvas geometry and survives save",async()=>{
+  const h=harness();await h.open();
+  const control=h.document.getElementById("scene-canvas-preset");
+  control.value="portrait";
+  control.dispatch("change",{});
+  assert.equal(h.document.getElementById("scene-canvas").style.aspectRatio,"720/1280");
+  assert.equal(h.document.getElementById("scene-canvas").dataset.orientation,"portrait");
+  assert.equal(h.document.getElementById("scene-render-image").style.aspectRatio,"720/1280");
+  assert.match(h.document.getElementById("scene-base-image").src,/preset=portrait$/);
+  await h.save();
+  assert.equal(h.saved().canvas_preset,"portrait");
+});
+
+test("Full HD 1080x1920 preset is explicit and not selected by default",async()=>{
+  const h=harness();await h.open();
+  assert.equal(h.document.getElementById("scene-canvas").style.aspectRatio,"1280/720");
+  const control=h.document.getElementById("scene-canvas-preset");
+  control.value="portrait_fullhd";
+  control.dispatch("change",{});
+  assert.equal(h.document.getElementById("scene-canvas").style.aspectRatio,"1080/1920");
+  await h.save();
+  assert.equal(h.saved().canvas_preset,"portrait_fullhd");
+});
+
+test("portrait selection does not modify positions or layer percentages",async()=>{
+  const h=harness();await h.open();
+  const before=h.root.innerHTML;
+  const control=h.document.getElementById("scene-canvas-preset");
+  control.value="portrait";
+  control.dispatch("change",{});
+  assert.match(h.root.innerHTML,/left:10%;top:15%;width:25%;height:25%/);
+  await h.save();
+  assert.equal(h.saved().layers[0].x,10);
+  assert.equal(h.saved().layers[0].w,25);
 });
