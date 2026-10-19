@@ -6,7 +6,7 @@
 
 **Stream once. Run continuously. Manage from anywhere.**
 
-[![Version](https://img.shields.io/badge/version-0.5.3--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
+[![Version](https://img.shields.io/badge/version-0.6.0--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Self Hosted](https://img.shields.io/badge/deployment-self--hosted-172436?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Powered by](https://img.shields.io/badge/media-FFmpeg%20%2B%20MediaMTX-19bd93?style=flat-square)](https://github.com/hazhanhasani/obs-)
 
@@ -47,7 +47,7 @@
 
 Unlike a traditional desktop-based streaming setup, **StreamCore runs its media pipeline on your own Linux VPS**. Your computer and phone do not need to stay online. The browser is only used to configure and monitor your streams.
 
-| Capability | v0.5.3 alpha |
+| Capability | v0.6.0 alpha |
 |:--|:--|
 | Server-generated live test broadcast | ✅ Implemented |
 | Upload H.264 videos and PNG/JPG/WebP still images | ✅ Implemented |
@@ -57,6 +57,7 @@ Unlike a traditional desktop-based streaming setup, **StreamCore runs its media 
 | Drag-and-resize canvas layers; position, size, opacity, Contain/Cover | ✅ Implemented (alpha) |
 | Multi-channel create/start/stop (up to 8 configured channels) | ✅ Implemented |
 | Authenticated RTL dashboard | ✅ Implemented |
+| Per-channel local FFmpeg FPS / speed / CPU / memory monitoring | ✅ Implemented (alpha) |
 | HLS browser delivery via Caddy | ✅ Implemented |
 | Recover desired streams after container restart | ✅ Implemented |
 | Timed playlists and automatic scheduling | 🛠️ Planned |
@@ -64,6 +65,24 @@ Unlike a traditional desktop-based streaming setup, **StreamCore runs its media 
 | External live input URL ingest | 🛠️ Planned |
 | Viewer analytics and advanced graphs | 🛠️ Planned |
 | Protected paid/private HLS | 🛠️ Planned |
+
+## 📊 Per-channel streaming health — v0.6.0-alpha
+
+The dashboard now reports **FFmpeg encoder FPS, encoding speed, per-process
+CPU/RAM and freshness of progress reports**, both for the active channel and
+in a per-channel system monitoring table. It distinguishes startup, healthy,
+slow encoding, absent progress and stalled encoding.
+
+Telemetry is captured locally using `ffmpeg -progress pipe:1`, sampled every
+five seconds, with one small daemon reader per active channel; only a bounded
+last sample is held in RAM. No third-party monitoring provider is required.
+
+**Important:** these measurements describe the local encoding process and
+**do not confirm** that an external platform has published or accepted the
+stream. The implementation and unit/API/UI tests are in GitHub; actual VPS
+deployment and sustained-load testing are pending.
+
+See [Encoder Monitoring Guide](docs/MONITORING.md).
 
 ## 🎯 Mobile touch-target visual fix — v0.5.3-alpha
 
