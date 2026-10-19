@@ -18,7 +18,7 @@ FPS = 25
 MAX_LAYERS = 8
 MAX_VIDEO_LAYERS = 3
 MAX_IMAGE_LAYERS = 5
-SUPPORTED_FITS = ("contain", "cover")
+SUPPORTED_FITS = ("contain", "cover", "stretch")
 
 def init_scene_db(connect):
     with connect() as db:
