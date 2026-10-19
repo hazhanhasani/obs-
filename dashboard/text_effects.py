@@ -3,6 +3,7 @@ import math
 import re
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, features
+from scene_geometry import layer_bounds, ffmpeg_sizing
 
 CANVAS_W, CANVAS_H = 1280, 720
 MAX_TEXT_LAYERS = 5
@@ -120,18 +121,10 @@ def _enable(layer):
 def effect_filters(layer, input_index, prev, output_index):
     check_timing(layer.get("effect", "none"), layer.get("start_sec", 0),
                  layer.get("duration_sec", 0), layer.get("repeat_sec", 0))
-    width = max(2, int(CANVAS_W * layer["w"] / 100) // 2 * 2)
-    height = max(2, int(CANVAS_H * layer["h"] / 100) // 2 * 2)
-    x, y = int(CANVAS_W * layer["x"] / 100), int(CANVAS_H * layer["y"] / 100)
-    fit = layer.get("fit", "contain")
-    if fit == "contain":
-        sizing = (f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
-                  f"format=rgba,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black@0")
-    elif fit == "cover":
-        sizing = (f"scale={width}:{height}:force_original_aspect_ratio=increase,"
-                  f"crop={width}:{height},format=rgba")
-    else:
-        raise ValueError("تناسب لایه معتبر نیست.")
+    bounds = layer_bounds(layer)
+    width, height = bounds.width, bounds.height
+    x, y = bounds.x, bounds.y
+    sizing = ffmpeg_sizing(bounds, layer.get("fit", "contain"))
     opacity = _num(layer.get("opacity", 100) / 100)
     effect = layer.get("effect", "none")
     filters = (f"[{input_index}:v]fps=25,{sizing},setsar=1,"
