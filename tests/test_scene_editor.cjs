@@ -263,7 +263,7 @@ test("small mobile logo is not hidden by the resize handle or canvas highlight",
   // The image must not clip the handle hanging outside its own bottom corner.
   assert.match(css,/\.scene-item\{[^}]*overflow:visible;/);
   // 14px visible dot, while the transparent 42px mobile hit area is large enough.
-  assert.match(css,/\.scene-handle::after\{[^}]*width:14px;height:14px;/);
+  assert.match(css,/\.scene-handle::after\{[^}]*width:15px;height:15px;/);
   assert.match(css,/\.scene-item \.scene-handle\{width:42px;height:42px;/);
   assert.match(html,/scene-editor\.css\?v=[0-9]+\.[0-9]+\.[0-9]+/);
   assert.match(html,/scene-editor\.js\?v=[0-9]+\.[0-9]+\.[0-9]+/);
@@ -403,4 +403,71 @@ test("portrait selection does not modify positions or layer percentages",async()
   await h.save();
   assert.equal(h.saved().layers[0].x,10);
   assert.equal(h.saved().layers[0].w,25);
+});
+
+function cornerTarget(corner){
+  return {closest(selector){
+    if(selector===".scene-item")return {dataset:{layer:"layer_logo"}};
+    if(selector==="[data-resize-corner]")return {dataset:{resizeCorner:corner}};
+    return null;
+  }};
+}
+for(const [corner,dx,dy,expected] of [
+  ["nw",50,28.125,{x:15,y:20,w:20,h:20}],
+  ["ne",50,28.125,{x:10,y:20,w:30,h:20}],
+  ["sw",50,28.125,{x:15,y:15,w:20,h:30}],
+  ["se",50,28.125,{x:10,y:15,w:30,h:30}]
+]){
+  test("mobile resize from "+corner+" anchors opposite edges after pointer release",async()=>{
+    const h=harness();await h.open();
+    h.root.dispatch("pointerdown",{target:cornerTarget(corner),clientX:200,clientY:120});
+    h.root.dispatch("pointermove",{clientX:200+dx,clientY:120+dy});
+    h.window.dispatch("pointerup",{clientX:200+dx,clientY:120+dy});
+    await h.save();
+    const l=h.saved().layers[0];
+    for(const [key,value] of Object.entries(expected))assert.equal(l[key],value,key);
+    assert.equal(h.window.StreamCoreScene.hasUnsaved(),false);
+  });
+}
+test("off-canvas move persists negative and over-100 coordinates",async()=>{
+  const h=harness({canvasWidth:390,canvasHeight:219.375});await h.open();
+  h.root.dispatch("pointerdown",{target:h.surface,clientX:150,clientY:70});
+  h.window.dispatch("pointermove",{clientX:-240,clientY:-149.375});
+  h.window.dispatch("pointerup",{clientX:-240,clientY:-149.375});
+  await h.save();
+  assert.equal(h.saved().layers[0].x,-90);
+  assert.equal(h.saved().layers[0].y,-85);
+  assert.match(h.root.innerHTML,/left:-90%;top:-85%/);
+});
+test("numeric transform supports sub-percent changes and reset to center",async()=>{
+  const h=harness();await h.open();
+  const x=h.document.getElementById("scene-x"),y=h.document.getElementById("scene-y");
+  x.value="-32.4";y.value="122.7";
+  x.dispatch("change",{});
+  await h.save();
+  assert.equal(h.saved().layers[0].x,-32.4);
+  assert.equal(h.saved().layers[0].y,122.7);
+  h.document.getElementById("scene-center-selected").dispatch("click",{});
+  await h.save();
+  assert.equal(h.saved().layers[0].x,37.5);
+  assert.equal(h.saved().layers[0].y,37.5);
+});
+test("all four independent handles exist for media and text",async()=>{
+  const h=harness();await h.open();
+  for(const corner of ["nw","ne","sw","se"])
+    assert.match(h.root.innerHTML,new RegExp('data-resize-corner="'+corner+'"'));
+  h.document.getElementById("scene-add-text").dispatch("click",{});
+  for(const corner of ["nw","ne","sw","se"])
+    assert.equal((h.root.innerHTML.match(new RegExp('data-resize-corner="'+corner+'"',"g"))||[]).length,2);
+});
+test("resizing across original left/top keeps 5% minimum rather than flipping",async()=>{
+  const h=harness();await h.open();
+  h.root.dispatch("pointerdown",{target:cornerTarget("nw"),clientX:200,clientY:120});
+  h.window.dispatch("pointermove",{clientX:1200,clientY:900});
+  h.window.dispatch("pointerup",{clientX:1200,clientY:900});
+  await h.save();
+  assert.equal(h.saved().layers[0].w,5);
+  assert.equal(h.saved().layers[0].h,5);
+  assert.equal(h.saved().layers[0].x,30);
+  assert.equal(h.saved().layers[0].y,35);
 });
