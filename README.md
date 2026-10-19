@@ -6,7 +6,7 @@
 
 **Stream once. Run continuously. Manage from anywhere.**
 
-[![Version](https://img.shields.io/badge/version-0.7.1--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
+[![Version](https://img.shields.io/badge/version-0.7.2--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Self Hosted](https://img.shields.io/badge/deployment-self--hosted-172436?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Powered by](https://img.shields.io/badge/media-FFmpeg%20%2B%20MediaMTX-19bd93?style=flat-square)](https://github.com/hazhanhasani/obs-)
 
@@ -65,6 +65,49 @@ Unlike a traditional desktop-based streaming setup, **StreamCore runs its media 
 | External live input URL ingest | 🛠️ Planned |
 | Viewer analytics and advanced graphs | 🛠️ Planned |
 | Protected paid/private HLS | 🛠️ Planned |
+
+## 🎛️ Off-canvas scene composition and four-corner resize — v0.7.2-alpha
+
+The Studio editor now supports OBS-inspired **unrestricted canvas-relative
+placement within a bounded safety range**. A selected media or text layer has
+four independent drag handles (NW, NE, SW, SE); dragging the body moves it.
+The opposite edges stay fixed during corner resize. Finger movement continues
+outside the visible canvas on mobile through a stable Pointer Capture surface
+and window-event fallback. The editable bounds may extend off-screen; **the
+encoded video always clips to the selected output frame**.
+
+- X/Y can be from -200% to +200% of the output canvas, in 0.1% increments.
+- Width/height can be from 5% to 200% of the canvas, in 0.1% increments.
+- Numeric Transform controls work even when a layer is fully outside view.
+  Use **مرکزچین لایه** to recover it without deleting it.
+- Server validation, SQLite persistence, FFmpeg scaling and overlays all
+  preserve offscreen geometry. Layer sizes are NOT silently shrunk or moved
+  into the visible canvas by the backend.
+- Scaling modes remain Contain, Cover and Stretch; Safe Area is a guide,
+  not a clipping constraint.
+- Existing scene coordinates, stream keys, channel destinations and live
+  publishing settings are preserved.
+
+### Relevant official reference implementation
+
+OBS exposes separate source transforms, bounds and crop via libobs;
+see [OBS Scene API](https://docs.obsproject.com/reference-scenes),
+[OBS Sources Guide](https://obsproject.com/kb/sources-guide) and
+[libobs source](https://github.com/obsproject/obs-studio/blob/master/libobs/obs-scene.c).
+Our geometry and four-corner handles are independently implemented; OBS
+source code was not copied. This is **not full OBS parity**: per-edge crop,
+free rotation, arbitrary group transforms and history Undo/Redo are future
+work.
+
+Telegram externally published streams use an RTMP URL and stream key;
+Telegram does not position or crop overlays. See
+[Telegram RTMP publishing credentials](https://core.telegram.org/method/phone.getGroupCallStreamRtmpUrl).
+Check the actual FFmpeg draft snapshot before pressing Save & Apply to avoid
+surprises in Telegram.
+
+Do not deploy on the live VPS during a broadcast: applying a scene restarts
+that channel's encoder. The latest CI result and real Telegram playback must
+be verified before release.
 
 ## 📱 Portrait 9:16 scene output — v0.7.1-alpha
 
