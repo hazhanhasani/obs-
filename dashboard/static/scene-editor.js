@@ -239,6 +239,9 @@
       "X: "+item.x+"٪  Y: "+item.y+"٪  عرض: "+item.w+"٪  ارتفاع: "+item.h+"٪";
   }
   function onPointerDown(e){
+    if(drag && drag.captureLost && e.pointerId!==drag.pointerId){
+      pointerDone({pointerId:drag.pointerId,type:"pointercancel"});
+    }
     if(drag || (e.pointerType==="mouse" && e.button!==0))return;
     const el=e.target?.closest?.(".scene-item");
     if(!el)return;
@@ -304,22 +307,22 @@
     if(completed.changed || pendingRender)preview();
   }
   function onCaptureLost(e){
-    // A lost capture can precede pointerup on Android. Keep the draft
-    // geometry instead of aborting, and allow the window listener to finish.
+    // Unexpected capture loss must NOT abort the drag on Android. Keep the
+    // gesture alive: window pointermove/up listeners continue tracking it.
     if(!drag || e.pointerId!==drag.pointerId)return;
-    const pointer=drag;
-    if(pointer.changed){
-      // A synthetic cancel has no position update; retain last committed size.
-      pointerDone({pointerId:e.pointerId,type:"pointercancel"});
-    }else{
-      pointerDone({pointerId:e.pointerId,type:"pointercancel"});
-    }
+    drag.captureLost=true;
+    // If a WebView never sends pointerup, the following real pointerdown
+    // can safely finalize the old draft before starting another gesture.
   }
   function resizeSelected(width,height){
     if(drag)return;
     const layer=getLayer(selected);if(!layer)return;
-    layer.w=clamp(width,5,100-layer.x);
-    layer.h=clamp(height,5,100-layer.y);
+    layer.w=clamp(width,5,100);
+    layer.h=clamp(height,5,100);
+    // Presets should not silently shrink because the overlay was near
+    // the right/bottom edge. Move it inside the canvas when necessary.
+    layer.x=clamp(layer.x,0,100-layer.w);
+    layer.y=clamp(layer.y,0,100-layer.h);
     markDirty();preview();recordGeometry();
   }
   function init(deps){
