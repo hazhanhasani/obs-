@@ -243,15 +243,15 @@ test("unexpected capture loss must retain the active Android drag",async()=>{
   assert.match(h.root.innerHTML,/width:35%;height:35%/);
 });
 
-test("size preset near right edge repositions overlay rather than shrinking it",async()=>{
+test("size preset preserves intentional off-canvas positioning",async()=>{
   const h=harness();await h.open();
   h.document.getElementById("scene-x").value=70;
   h.document.getElementById("scene-x").dispatch("change",{});
   h.document.getElementById("scene-preset-75").dispatch("click",{});
-  assert.match(h.root.innerHTML,/left:25%/);
+  assert.match(h.root.innerHTML,/left:70%/);
   assert.match(h.root.innerHTML,/width:75%/);
   await h.save();
-  assert.equal(h.saved().layers[0].x,25);
+  assert.equal(h.saved().layers[0].x,70);
   assert.equal(h.saved().layers[0].w,75);
 });
 
@@ -470,4 +470,33 @@ test("resizing across original left/top keeps 5% minimum rather than flipping",a
   assert.equal(h.saved().layers[0].h,5);
   assert.equal(h.saved().layers[0].x,30);
   assert.equal(h.saved().layers[0].y,35);
+});
+
+test("northwest resize at maximum 200% keeps far edges anchored",async()=>{
+  const h=harness();await h.open();
+  h.root.dispatch("pointerdown",{target:cornerTarget("nw"),clientX:200,clientY:120});
+  h.window.dispatch("pointermove",{clientX:-4800,clientY:-2700});
+  h.window.dispatch("pointerup",{clientX:-4800,clientY:-2700});
+  await h.save();
+  const l=h.saved().layers[0];
+  assert.equal(l.w,200);
+  assert.equal(l.h,200);
+  assert.equal(l.x,-165);
+  assert.equal(l.y,-160);
+  assert.equal(l.x+l.w,35);
+  assert.equal(l.y+l.h,40);
+});
+
+test("off-canvas size preset never jumps layer back inside video",async()=>{
+  const h=harness();await h.open();
+  h.document.getElementById("scene-x").value="-120.5";
+  h.document.getElementById("scene-y").value="135";
+  h.document.getElementById("scene-x").dispatch("change",{});
+  h.document.getElementById("scene-preset-50").dispatch("click",{});
+  await h.save();
+  const l=h.saved().layers[0];
+  assert.equal(l.x,-120.5);
+  assert.equal(l.y,135);
+  assert.equal(l.w,50);
+  assert.equal(l.h,28);
 });
