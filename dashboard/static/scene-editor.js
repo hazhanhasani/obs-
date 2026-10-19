@@ -7,6 +7,7 @@
   const safe=(x)=>String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   let api,overview,page,toast;
   let channel=null,baseFile=null,layers=[],textLayers=[],selected=null,dirty=false,drag=null;
+  let pendingRender=false, saving=false, lastResize=null;
   let media=[],loadSequence=0;
   const fieldNames=["x","y","w","h","opacity"];
   const byFile=(name)=>media.find(m=>m.file===name);
@@ -30,6 +31,10 @@
     $("scene-add").disabled=!media.length;
   }
   function preview(){
+    // Never destroy the element under an active finger. Live overview polling,
+    // media library refreshes and responsive layout changes may call preview().
+    if(drag){pendingRender=true;return;}
+    pendingRender=false;
     const bg=$("scene-base-image"),src=baseFile?poster(baseFile):"";
     if(src){bg.src=src;bg.hidden=false;$("scene-colorbars").hidden=true;}
     else{bg.hidden=true;bg.removeAttribute("src");$("scene-colorbars").hidden=false;}
@@ -95,6 +100,11 @@
     try{
       const scene=await api("/channels/"+encodeURIComponent(nextChannel)+"/scene");
       if(request!==loadSequence)return;
+      // Do not replace local gesture/draft data with a stale request response.
+      if(drag || (dirty && channel===nextChannel)){
+        toast("تغییرات ذخیره‌نشده حفظ شدند؛ ابتدا صحنه را ذخیره کنید.");
+        return;
+      }
       channel=nextChannel;
       baseFile=scene.base_file;
       layers=(scene.layers||[]).map(normalize);
@@ -194,28 +204,49 @@
   }
   async function save(){
     if(!channel)return;
+    if(drag || saving){toast("ابتدا حرکت انگشت را تمام کنید.");return;}
+    saving=true;
     const button=$("scene-save");
     button.disabled=true;button.textContent="در حال ذخیره و اعمال...";
     try{
-      await api("/channels/"+encodeURIComponent(channel)+"/scene",{
+      const response=await api("/channels/"+encodeURIComponent(channel)+"/scene",{
         method:"PUT",body:JSON.stringify({base_file:baseFile||null,layers,text_layers:textLayers})
       });
+      // Only report success after the API returns persisted layer geometry.
+      const remote=response.scene;
+      const matches=(local,stored)=>Array.isArray(stored) && local.length===stored.length
+        && local.every((l,index)=>["layer_id","x","y","w","h"].every(k=>String(l[k])===String(stored[index][k])));
+      if(!remote || !matches(layers,remote.layers) || !matches(textLayers,remote.text_layers)){
+        throw new Error("سرور اندازه لایه را مطابق درخواست ذخیره نکرد؛ وضعیت را دوباره بررسی کنید.");
+      }
       resetDirty();
+      recordGeometry();
       toast("چیدمان ذخیره شد. اگر کانال روشن باشد پخش برای اعمال صحنه دوباره راه‌اندازی می‌شود.");
     }catch(e){toast(e.message);button.disabled=false;}
-    finally{button.textContent="ذخیره و اعمال صحنه";}
+    finally{saving=false;button.textContent="ذخیره و اعمال صحنه";}
   }
   // Pointer capture belongs to the persistent scene-items container, not to
   // .scene-item nodes regenerated during preview updates.
+  function getCanvasSize(){
+    const rect=$("scene-canvas").getBoundingClientRect();
+    return {width:rect.width,height:rect.height};
+  }
+  function recordGeometry(){
+    const item=getLayer(selected);
+    if(!item)return;
+    lastResize={id:item.layer_id,x:item.x,y:item.y,w:item.w,h:item.h};
+    $("scene-gesture-status").textContent=
+      "X: "+item.x+"٪  Y: "+item.y+"٪  عرض: "+item.w+"٪  ارتفاع: "+item.h+"٪";
+  }
   function onPointerDown(e){
     if(drag || (e.pointerType==="mouse" && e.button!==0))return;
-    const el=e.target.closest(".scene-item");
+    const el=e.target?.closest?.(".scene-item");
     if(!el)return;
     const item=getLayer(el.dataset.layer);
     if(!item)return;
-    const canvas=$("scene-canvas").getBoundingClientRect();
+    const canvas=getCanvasSize();
     if(canvas.width<=0 || canvas.height<=0)return;
-    const resize=!!e.target.closest(".scene-handle");
+    const resize=!!e.target?.closest?.(".scene-handle");
     drag={
       pointerId:e.pointerId,id:item.layer_id,
       startX:e.clientX,startY:e.clientY,
@@ -224,17 +255,22 @@
       type:resize?"resize":"move",changed:false
     };
     activateLayer(item.layer_id);
-    // Capturing on the stable parent ensures pointerup is delivered even when
-    // the finger moves outside the overlay or changes its bounds.
-    try{$("scene-items").setPointerCapture(e.pointerId);}catch(_){}
-    e.preventDefault();
+    $("scene-canvas").classList.add("scene-gesturing");
+    recordGeometry();
+    // Mobile Chromium can report a lost capture after rotation/scroll,
+    // and WebViews may reject capture. Window listeners provide a fallback.
+    try{$("scene-items").setPointerCapture?.(e.pointerId);}catch(_){}
+    e.preventDefault?.();
   }
   function onPointerMove(e){
     if(!drag || e.pointerId!==drag.pointerId)return;
-    const l=getLayer(drag.id);
-    if(!l)return;
-    const dx=Math.round((e.clientX-drag.startX)*100/drag.width);
-    const dy=Math.round((e.clientY-drag.startY)*100/drag.height);
+    const l=getLayer(drag.id);if(!l)return;
+    // Use the current canvas dimensions if viewport changes during a gesture.
+    const current=getCanvasSize();
+    const width=current.width>0?current.width:drag.width;
+    const height=current.height>0?current.height:drag.height;
+    const dx=Math.round((e.clientX-drag.startX)*100/width);
+    const dy=Math.round((e.clientY-drag.startY)*100/height);
     const old=[l.x,l.y,l.w,l.h];
     if(drag.type==="resize"){
       l.w=clamp(drag.w+dx,5,100-drag.x);
@@ -243,30 +279,48 @@
       l.x=clamp(drag.x+dx,0,100-drag.w);
       l.y=clamp(drag.y+dy,0,100-drag.h);
     }
-    const element=$("scene-items").querySelector('[data-layer="'+l.layer_id+'"]');
-    if(element)Object.assign(element.style,{
+    const node=$("scene-items").querySelector('[data-layer="'+l.layer_id+'"]');
+    if(node)Object.assign(node.style,{
       left:l.x+"%",top:l.y+"%",width:l.w+"%",height:l.h+"%"
     });
-    for(const n of ["x","y","w","h"])$("scene-"+n).value=l[n];
+    for(const name of ["x","y","w","h"])$("scene-"+name).value=l[name];
+    recordGeometry();
     if(old.some((value,i)=>value!==[l.x,l.y,l.w,l.h][i])){
       drag.changed=true;
       markDirty();
     }
-    e.preventDefault();
+    e.preventDefault?.();
   }
   function pointerDone(e){
     if(!drag || e.pointerId!==drag.pointerId)return;
-    // Some mobile browsers deliver the final coordinates only on pointerup.
     if(e.type==="pointerup")onPointerMove(e);
     const completed=drag;
     drag=null;
+    $("scene-canvas").classList.remove("scene-gesturing");
     const root=$("scene-items");
     try{
-      if(root.hasPointerCapture(e.pointerId))root.releasePointerCapture(e.pointerId);
+      if(root.hasPointerCapture?.(e.pointerId))root.releasePointerCapture(e.pointerId);
     }catch(_){}
-    // A full re-render is now safe, because the gesture has ended and the
-    // actual layer model already contains the final positions.
-    if(completed.changed)preview();
+    if(completed.changed || pendingRender)preview();
+  }
+  function onCaptureLost(e){
+    // A lost capture can precede pointerup on Android. Keep the draft
+    // geometry instead of aborting, and allow the window listener to finish.
+    if(!drag || e.pointerId!==drag.pointerId)return;
+    const pointer=drag;
+    if(pointer.changed){
+      // A synthetic cancel has no position update; retain last committed size.
+      pointerDone({pointerId:e.pointerId,type:"pointercancel"});
+    }else{
+      pointerDone({pointerId:e.pointerId,type:"pointercancel"});
+    }
+  }
+  function resizeSelected(width,height){
+    if(drag)return;
+    const layer=getLayer(selected);if(!layer)return;
+    layer.w=clamp(width,5,100-layer.x);
+    layer.h=clamp(height,5,100-layer.y);
+    markDirty();preview();recordGeometry();
   }
   function init(deps){
     api=deps.api;toast=deps.toast;page=deps.page;
@@ -300,10 +354,14 @@
     $("scene-items").addEventListener("pointermove",onPointerMove);
     $("scene-items").addEventListener("pointerup",pointerDone);
     $("scene-items").addEventListener("pointercancel",pointerDone);
-    $("scene-items").addEventListener("lostpointercapture",pointerDone);
-    // Secondary safety net for WebViews with incomplete pointer-capture.
+    $("scene-items").addEventListener("lostpointercapture",onCaptureLost);
+    // Capture fallback: a finger can move beyond the layer or the whole canvas.
+    window.addEventListener("pointermove",onPointerMove);
     window.addEventListener("pointerup",pointerDone);
     window.addEventListener("pointercancel",pointerDone);
+    for(const size of [25,50,75]){
+      $("scene-preset-"+size).addEventListener("click",()=>resizeSelected(size,Math.round(size*9/16)));
+    }
   }
   window.StreamCoreScene={init,sync,open,hasUnsaved:()=>dirty};
 })();
