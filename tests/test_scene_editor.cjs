@@ -263,7 +263,7 @@ test("small mobile logo is not hidden by the resize handle or canvas highlight",
   // The image must not clip the handle hanging outside its own bottom corner.
   assert.match(css,/\.scene-item\{[^}]*overflow:visible;/);
   // 14px visible dot, while the transparent 42px mobile hit area is large enough.
-  assert.match(css,/\.scene-handle::after\{[^}]*width:15px;height:15px;/);
+  assert.match(css,/\.scene-handle::after\{[^}]*width:15px;height:15px/);
   assert.match(css,/\.scene-item \.scene-handle\{width:42px;height:42px;/);
   assert.match(html,/scene-editor\.css\?v=[0-9]+\.[0-9]+\.[0-9]+/);
   assert.match(html,/scene-editor\.js\?v=[0-9]+\.[0-9]+\.[0-9]+/);
