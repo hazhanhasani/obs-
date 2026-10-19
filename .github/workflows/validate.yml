@@ -16,6 +16,9 @@ jobs:
         run: |
           sh -n publisher/start-stream.sh
           bash -n install.sh
+          bash -n scripts/update-release.sh
+          bash -n scripts/install-updater.sh
+          python3 -m py_compile scripts/release-check.py
           bash tests/test_installer.sh
           node --check dashboard/static/app.js
           node --check dashboard/static/scene-editor.js
