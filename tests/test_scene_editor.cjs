@@ -132,3 +132,26 @@ test("pointer cancellation retains last confirmed size",async()=>{
   h.root.dispatch("lostpointercapture",{pointerId:1});
   assert.match(h.root.innerHTML,/width:30%;height:30%/);
 });
+
+test("text layer can be written, styled and saved without clearing media layers", async()=>{
+  const h=harness(); await h.open();
+  h.document.getElementById("scene-add-text").dispatch("click",{});
+  const field=h.document.getElementById("scene-text-input");
+  field.value="سلام به StreamCore";
+  field.dispatch("input",{});
+  h.document.getElementById("scene-effect").value="slide-right";
+  h.document.getElementById("scene-effect").dispatch("change",{});
+  h.document.getElementById("scene-start").value="2";
+  h.document.getElementById("scene-duration").value="6";
+  h.document.getElementById("scene-repeat").value="20";
+  h.document.getElementById("scene-start").dispatch("change",{});
+  assert.match(h.root.innerHTML,/سلام به StreamCore/);
+  await h.save();
+  assert.equal(h.saved().layers.length,1,"media layers must be preserved");
+  assert.equal(h.saved().text_layers.length,1);
+  assert.equal(h.saved().text_layers[0].text,"سلام به StreamCore");
+  assert.equal(h.saved().text_layers[0].effect,"slide-right");
+  assert.equal(h.saved().text_layers[0].start_sec,2);
+  assert.equal(h.saved().text_layers[0].duration_sec,6);
+  assert.equal(h.saved().text_layers[0].repeat_sec,20);
+});
