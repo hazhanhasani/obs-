@@ -144,7 +144,7 @@ def scene_command(connect, channel, base_file, media_root, target):
     for idx,layer in enumerate(records, start=1):
         path=_media_file(media_root,layer["media_file"])
         if layer["kind"]=="image":
-            args+=["-loop","1","-framerate",str(FPS),"-i",path]
+            args+=["-re","-loop","1","-framerate",str(FPS),"-i",path]
         elif layer["kind"]=="video":
             args+=["-re","-stream_loop","-1","-i",path]
         else:
