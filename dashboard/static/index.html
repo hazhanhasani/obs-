@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0a111a">
+  <meta name="description" content="StreamCore server-side live streaming control center">
+  <title>StreamCore | کنترل پخش زنده</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.15/dist/hls.min.js" defer></script>
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+<section id="login-page" class="login-page" hidden>
+  <div class="login-card">
+    <div class="brand big"><span class="brand-icon"><i class="bi bi-broadcast-pin"></i></span><span>StreamCore</span></div>
+    <h1>کنترل کامل استریم، از هرجا</h1>
+    <p>برای مدیریت امن کانال‌های سرور، وارد شوید.</p>
+    <form id="login-form" autocomplete="on">
+      <label for="password">رمز ورود مدیریت</label>
+      <div class="login-input"><i class="bi bi-shield-lock"></i><input id="password" type="password" name="password" autocomplete="current-password" minlength="12" required placeholder="رمز عبور پنل"></div>
+      <button class="primary wide" id="login-submit" type="submit">ورود به داشبورد <i class="bi bi-arrow-left"></i></button>
+      <p id="login-error" class="form-error" aria-live="polite"></p>
+    </form>
+    <small>پخش ویدئو روی VPS ادامه پیدا می‌کند؛ نیازی به روشن بودن کامپیوتر نیست.</small>
+  </div>
+</section>
+
+<div id="app" class="shell" hidden>
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-icon"><i class="bi bi-broadcast-pin"></i></span><span>StreamCore</span></div>
+    <p class="side-caption">STREAMING CONTROL CENTER</p>
+    <nav class="nav" aria-label="منوی اصلی">
+      <button class="nav-item active" data-page="dashboard"><i class="bi bi-grid-1x2"></i> داشبورد</button>
+      <button class="nav-item" data-page="channels"><i class="bi bi-play-btn"></i> کانال‌ها</button>
+      <button class="nav-item" data-page="media"><i class="bi bi-collection-play"></i> رسانه‌ها</button>
+      <button class="nav-item" data-page="system"><i class="bi bi-sliders"></i> وضعیت سیستم</button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="small-online"><span class="dot green"></span> سرویس مستقل روی VPS</div>
+      <small>نسخه آزمایشی v0.2.0</small>
+    </div>
+  </aside>
+
+  <div class="content">
+    <header class="topbar">
+      <div class="topbar-right">
+        <button class="mobile-menu" id="menu-toggle" aria-label="باز کردن منو"><i class="bi bi-list"></i></button>
+        <h1 id="page-heading">داشبورد استریم</h1>
+        <span class="top-note">مدیریت متمرکز پخش زنده</span>
+      </div>
+      <div class="topbar-actions">
+        <span class="server-pill"><span class="dot green"></span><span>سرور آنلاین</span></span>
+        <button id="create-channel" class="primary"><i class="bi bi-plus-lg"></i> ایجاد کانال</button>
+        <button id="logout" class="avatar" title="خروج امن" aria-label="خروج از پنل"><i class="bi bi-box-arrow-left"></i></button>
+      </div>
+    </header>
+
+    <main class="main">
+      <section data-view="dashboard">
+        <div class="section-title"><div><p class="eyebrow">OVERVIEW / LIVE MONITORING</p><h2>مرکز فرمان پخش زنده</h2></div><span class="live-caption"><i class="bi bi-circle-fill"></i> وضعیت لحظه‌ای</span></div>
+        <div class="broadcast-grid">
+          <div class="left-column">
+            <div class="preview">
+              <video id="player" muted playsinline controls aria-label="پیش نمایش کانال"></video>
+              <div class="preview-placeholder" id="preview-empty">
+                <div class="placeholder-glow"><i class="bi bi-play-circle"></i></div>
+                <b>پیش‌نمایش پخش زنده</b>
+                <span>کانال را روشن کنید تا تصویر اینجا نمایش داده شود</span>
+              </div>
+              <div class="preview-top"><span class="live-chip" id="live-chip">OFFLINE</span><span class="preview-channel" id="preview-channel">کانال اصلی</span></div>
+              <div class="preview-bottom"><b id="preview-title">StreamCore Live</b><span id="preview-sub">HLS • Server-Side Streaming</span></div>
+            </div>
+            <div class="stats-grid">
+              <div class="stat"><span class="stat-icon teal"><i class="bi bi-hdd-network"></i></span><span class="stat-label">کانال‌های فعال</span><strong id="stat-live">۰</strong><span class="stat-foot">از کانال‌های ساخته‌شده</span></div>
+              <div class="stat"><span class="stat-icon orange"><i class="bi bi-cpu"></i></span><span class="stat-label">مصرف CPU</span><strong id="stat-cpu">۰٪</strong><span class="stat-foot">مصرف گزارش‌شده سرویس</span></div>
+              <div class="stat"><span class="stat-icon purple"><i class="bi bi-memory"></i></span><span class="stat-label">مصرف حافظه</span><strong id="stat-ram">۰٪</strong><span class="stat-foot" id="stat-ramtotal">حافظه در دسترس</span></div>
+              <div class="stat"><span class="stat-icon blue"><i class="bi bi-film"></i></span><span class="stat-label">رسانه‌های آپلودشده</span><strong id="stat-media">۰</strong><span class="stat-foot">آماده پخش روی VPS</span></div>
+            </div>
+          </div>
+          <div class="control-column">
+            <div class="control-header"><span>کنترل کانال</span><span class="signal" id="channel-status"><span class="dot gray"></span> متوقف</span></div>
+            <label class="field-label" for="channel-select">کانال انتخاب‌شده</label>
+            <select id="channel-select" class="field"></select>
+            <div class="control-buttons"><button id="start-channel" class="primary"><i class="bi bi-play-fill"></i> شروع پخش</button><button id="stop-channel" class="secondary"><i class="bi bi-stop-fill"></i> توقف</button></div>
+            <div class="separator"></div>
+            <div class="control-header"><span>منبع پخش</span><i class="bi bi-three-dots"></i></div>
+            <label class="field-label" for="source-select">نوع منبع</label>
+            <select id="source-select" class="field"><option value="test">تصویر تست خودکار</option><option value="file">فایل ویدئویی (Loop)</option></select>
+            <label class="field-label" for="media-select">فایل ویدئویی</label>
+            <select id="media-select" class="field"><option value="">فایلی انتخاب نشده</option></select>
+            <button id="save-source" class="outline"><i class="bi bi-check2-circle"></i> ذخیره منبع پخش</button>
+            <div class="separator"></div>
+            <div class="control-header"><span>خروجی پخش</span><span class="caption-mini">HLS</span></div>
+            <div class="output-line"><span class="dot green"></span><span>پخش روی وب‌سایت</span><b>HTTPS</b></div>
+            <div class="link-box"><code id="hls-url">/live/main/index.m3u8</code><button id="copy-hls" aria-label="کپی لینک پخش"><i class="bi bi-copy"></i></button></div>
+            <p id="stream-error" class="stream-error"></p>
+          </div>
+        </div>
+
+        <section class="panel playlist-panel">
+          <div class="panel-heading"><div><p class="eyebrow">MEDIA LIBRARY</p><h3>صف پخش و رسانه‌ها</h3></div><button class="soft-button" data-goto="media"><i class="bi bi-plus-circle"></i> افزودن رسانه</button></div>
+          <div class="table-wrap"><table><thead><tr><th>فایل ویدئویی</th><th>مدت</th><th>حجم</th><th>عملیات</th></tr></thead><tbody id="media-queue"></tbody></table></div>
+          <p id="media-empty" class="empty-state" hidden>هنوز رسانه‌ای اضافه نشده؛ از بخش رسانه‌ها فایل H.264 بارگذاری کنید.</p>
+        </section>
+
+        <section class="panel chart-panel"><div class="panel-heading"><div><p class="eyebrow">SYSTEM HEALTH</p><h3>عملکرد سرویس</h3></div><div class="chart-legend"><span><i class="legend-line teal-bg"></i> CPU</span><span><i class="legend-line orange-bg"></i> RAM</span></div></div><canvas id="metric-chart" height="145" aria-label="نمودار عملکرد سرویس"></canvas></section>
+      </section>
+
+      <section data-view="channels" hidden><div class="section-title"><div><p class="eyebrow">CHANNEL MANAGEMENT</p><h2>کانال‌های استریم</h2></div><button class="primary" data-create><i class="bi bi-plus-lg"></i> کانال جدید</button></div><div id="channel-cards" class="channel-cards"></div></section>
+
+      <section data-view="media" hidden><div class="section-title"><div><p class="eyebrow">MEDIA MANAGER</p><h2>کتابخانه رسانه</h2></div></div><div class="panel upload-panel"><div class="upload-icon"><i class="bi bi-cloud-arrow-up"></i></div><h3>آپلود ویدئو روی سرور</h3><p>MP4 / MKV / MOV با کدک H.264؛ ویدئو روی VPS ذخیره خواهد شد.</p><form id="upload-form"><input type="file" id="media-file" accept=".mp4,.mkv,.mov" required><button type="submit" class="primary" id="upload-btn"><i class="bi bi-upload"></i> بارگذاری فایل</button></form><p class="hint" id="upload-result"></p></div><div class="panel"><div class="panel-heading"><h3>فایل‌های موجود</h3><span id="media-count"></span></div><div class="table-wrap"><table><thead><tr><th>نام فایل</th><th>زمان</th><th>حجم</th><th>عملیات</th></tr></thead><tbody id="media-library"></tbody></table></div></div></section>
+
+      <section data-view="system" hidden><div class="section-title"><div><p class="eyebrow">SERVER OPERATIONS</p><h2>وضعیت سیستم</h2></div></div><div class="system-grid"><div class="panel"><h3>اطلاعات اجرا</h3><div class="info-row"><span>Media Engine</span><b>FFmpeg + MediaMTX</b></div><div class="info-row"><span>Streaming Delivery</span><b>HLS via Caddy</b></div><div class="info-row"><span>کنترل مدیریت</span><b>Session + CSRF</b></div><div class="info-row"><span>منابع و وضعیت کانال‌ها</span><b>SQLite / VPS</b></div></div><div class="panel"><h3>ملاحظات انتشار</h3><p class="system-text">لینک‌های پخش در این نسخه عمومی‌اند؛ برای محتوای خصوصی و پولی باید کنترل دسترسی HLS اضافه شود. برای HTTPS، دامنه را در فایل env تنظیم کنید.</p><p class="system-text">این داشبورد برای کنترل واقعی کانال‌هاست؛ زمان‌بندی و ارسال هم‌زمان به چند پلتفرم هنوز پیاده‌سازی نشده‌اند.</p></div></div></section>
+    </main>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><button class="modal-close" id="modal-close" aria-label="بستن"><i class="bi bi-x-lg"></i></button><h2 id="modal-title">ایجاد کانال جدید</h2><p>یک شناسه لاتین یکتا برای مسیر پخش وارد کنید.</p><form id="channel-form"><label for="new-channel-name">نام کانال</label><input id="new-channel-name" type="text" minlength="2" maxlength="60" placeholder="مثلاً کانال موزیک" required><label for="new-channel-id">شناسه پخش (English)</label><input id="new-channel-id" type="text" lang="en" dir="ltr" pattern="[a-z][a-z0-9_-]{2,39}" placeholder="music24" required><button class="primary wide" type="submit">ساخت کانال</button></form></div></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body></html>

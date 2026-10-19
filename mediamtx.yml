@@ -1,14 +1,13 @@
-# Minimal, private stream origin. Do not publish ports 1935 or 8888.
 logLevel: info
 rtsp: false
 rtmp: true
 hls: true
 hlsVariant: fmp4
+hlsAlwaysRemux: true
 webrtc: false
 srt: false
 api: false
 metrics: false
-
 paths:
   all_others:
     source: publisher

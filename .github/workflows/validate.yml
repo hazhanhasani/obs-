@@ -1,17 +1,26 @@
-name: Validate
-
+name: Validate StreamCore
 on:
   push:
   pull_request:
-
+permissions:
+  contents: read
 jobs:
-  config:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate shell script
-        run: sh -n publisher/start-stream.sh
-      - name: Validate Compose
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate shell, JavaScript and Compose
         run: |
+          sh -n publisher/start-stream.sh
+          node --check dashboard/static/app.js
           cp .env.example .env
-          docker compose --profile demo --profile file config --quiet
+          docker compose --profile legacy-demo --profile legacy-file config --quiet
+      - name: Install test dependencies
+        run: pip install -r dashboard/requirements.txt httpx pytest
+      - name: Validate dashboard endpoints
+        run: python -m pytest -q tests
+      - name: Build dashboard container
+        run: docker compose build dashboard

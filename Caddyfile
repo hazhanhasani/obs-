@@ -1,16 +1,13 @@
 {$STREAM_DOMAIN} {
   encode zstd gzip
 
-  # Public HLS playback. The stream origin is not directly exposed.
   handle_path /live/* {
-    reverse_proxy mediamtx:8888
-  }
-
-  handle /health {
-    respond "StreamCore gateway online" 200
+    reverse_proxy mediamtx:8888 {
+      header_down Location ^/ /live/
+    }
   }
 
   handle {
-    respond "StreamCore v0.1.0: /live/main/index.m3u8" 200
+    reverse_proxy dashboard:8000
   }
 }

@@ -5,58 +5,65 @@ services:
     restart: unless-stopped
     volumes:
       - ./mediamtx.yml:/mediamtx.yml:ro
-    networks:
-      - internal
+    networks: [internal]
+    security_opt: [no-new-privileges:true]
+
+  dashboard:
+    build: ./dashboard
+    restart: unless-stopped
+    environment:
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}"
+      SESSION_SECRET: "${SESSION_SECRET:?Set SESSION_SECRET in .env}"
+      COOKIE_SECURE: "${COOKIE_SECURE:-true}"
+      MAX_UPLOAD_MB: "${MAX_UPLOAD_MB:-1024}"
+    volumes:
+      - ./media:/media
+      - dashboard_data:/data
+    depends_on: [mediamtx]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [internal]
 
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
+    ports: ["80:80", "443:443", "443:443/udp"]
     environment:
       STREAM_DOMAIN: "${STREAM_DOMAIN:-:80}"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-    depends_on:
-      - mediamtx
-    networks:
-      - internal
+    depends_on: [dashboard, mediamtx]
+    networks: [internal]
+    security_opt: [no-new-privileges:true]
 
   demo-publisher:
-    profiles: ["demo"]
+    profiles: [legacy-demo]
     build: ./publisher
     restart: unless-stopped
     environment:
       STREAM_MODE: test
       STREAM_PATH: main
-    depends_on:
-      - mediamtx
-    networks:
-      - internal
+    depends_on: [mediamtx]
+    networks: [internal]
 
   file-publisher:
-    profiles: ["file"]
+    profiles: [legacy-file]
     build: ./publisher
     restart: unless-stopped
     environment:
       STREAM_MODE: file
       STREAM_PATH: main
       INPUT_FILE: /media/loop.mp4
-    volumes:
-      - ./media:/media:ro
-    depends_on:
-      - mediamtx
-    networks:
-      - internal
+    volumes: ["./media:/media:ro"]
+    depends_on: [mediamtx]
+    networks: [internal]
 
 networks:
   internal:
     driver: bridge
-
 volumes:
+  dashboard_data:
   caddy_data:
   caddy_config:
