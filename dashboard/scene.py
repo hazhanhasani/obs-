@@ -9,7 +9,7 @@ import re
 import subprocess
 import tempfile
 from pathlib import Path
-from scene_geometry import canvas_size, CANVAS_PRESETS
+from scene_geometry import canvas_size, CANVAS_PRESETS, layer_bounds
 from text_effects import (MAX_TEXT_LAYERS, COLOR, check_timing,
                           render_text_layer, effect_filters)
 
@@ -109,8 +109,8 @@ def validate_scene(connect, base_file, layers):
         raise ValueError("پس‌زمینه صحنه باید فایل ویدئویی باشد.")
     vcount=icount=0
     for l in layers:
-        if l.x+l.w>100 or l.y+l.h>100:
-            raise ValueError("لایه از محدوده تصویر خروجی خارج می‌شود؛ موقعیت و اندازه را اصلاح کنید.")
+        # Deliberately allow negative/off-frame coordinates for staging media.
+        layer_bounds(l.model_dump() if hasattr(l, "model_dump") else vars(l))
         check_timing(getattr(l, "effect", "none"), getattr(l, "start_sec", 0),
                      getattr(l, "duration_sec", 0), getattr(l, "repeat_sec", 0))
         if l.fit not in SUPPORTED_FITS:
@@ -129,8 +129,7 @@ def validate_text_layers(items):
     if len({item.layer_id for item in items}) != len(items):
         raise ValueError("شناسه لایه متن تکراری است.")
     for item in items:
-        if item.x + item.w > 100 or item.y + item.h > 100:
-            raise ValueError("محدوده متن از کادر خروجی خارج می‌شود.")
+        layer_bounds(item.model_dump() if hasattr(item, "model_dump") else vars(item))
         if not item.text.strip() or len(item.text) > 240 or len(item.text.splitlines()) > 5:
             raise ValueError("متن باید ۱ تا ۲۴۰ کاراکتر و حداکثر ۵ خط باشد.")
         if any(ord(ch) < 32 and ch != "\n" for ch in item.text):
