@@ -10,12 +10,51 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from PIL import Image
-from scene import init_scene_db, save_scene, scene_command
+from scene import init_scene_db, save_scene, scene_command, scene_snapshot_command
 
 
 @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"),
                      "FFmpeg and ffprobe are required for the integration smoke test")
 class SceneFFmpegSmokeTests(unittest.TestCase):
+    def test_preview_frame_matches_exact_overlay_geometry(self):
+        """A saved 75% width layer must occupy the same pixels in live and draft."""
+        with tempfile.TemporaryDirectory(prefix="scene-parity-") as temp:
+            root=Path(temp)
+            db_file=root/"scene.sqlite"
+            def connect():
+                db=sqlite3.connect(db_file)
+                db.row_factory=sqlite3.Row
+                return db
+            with connect() as db:
+                db.execute("CREATE TABLE channels (id TEXT PRIMARY KEY, mode TEXT, file TEXT, desired INTEGER)")
+                db.execute("CREATE TABLE media (file TEXT PRIMARY KEY, kind TEXT)")
+                db.execute("INSERT INTO channels(id,mode,desired) VALUES('main','test',0)")
+                db.execute("INSERT INTO media(file,kind) VALUES('red-logo.png','image')")
+            # Landscape image with transparency; intentional contain letterboxing.
+            Image.new("RGBA",(300,120),(255,0,0,255)).save(root/"red-logo.png")
+            init_scene_db(connect)
+            layer=SimpleNamespace(layer_id="layer_red",media_file="red-logo.png",
+                x=10,y=5,w=75,h=42,fit="contain",opacity=100,
+                effect="none",start_sec=0,duration_sec=0,repeat_sec=0)
+            save_scene(connect,"main",None,[layer],[])
+            live=scene_command(connect,"main",None,root,"rtmp://example.com/live")
+            preview=scene_command(connect,"main",None,root,"discard",
+                scene_override={"media":[{**vars(layer),"kind":"image"}],
+                                "text_layers":[]})
+            self.assertEqual(live[live.index("-filter_complex")+1],
+                             preview[preview.index("-filter_complex")+1])
+            command=scene_snapshot_command(preview)
+            result=subprocess.run(command,capture_output=True,timeout=30)
+            self.assertEqual(result.returncode,0,result.stderr[-1500:])
+            self.assertTrue(result.stdout.startswith(bytes((255,216))))
+            from io import BytesIO
+            with Image.open(BytesIO(result.stdout)) as image:
+                self.assertEqual(image.size,(1280,720))
+                red=image.convert("RGB").getpixel((400,150))
+                self.assertGreater(red[0],200)
+                self.assertLess(red[1],80)
+                self.assertLess(red[2],80)
+
     def test_animated_image_and_persian_text_encode(self):
         with tempfile.TemporaryDirectory(prefix="streamcore-ffmpeg-") as temp:
             root = Path(temp)
