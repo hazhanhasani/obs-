@@ -672,6 +672,33 @@ async def preview_unpublished_scene(request: Request, channel: str, body: SceneI
     return Response(frame, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
 
+# Avoid a CSS-only approximation of the FFmpeg testsrc2 background.
+# Generate a single 720p frame with the same lavfi source as scene_command().
+_test_pattern_guard = threading.Lock()
+
+@app.get("/api/scene/test-pattern")
+def scene_test_pattern(request: Request):
+    authorize(request)
+    poster = DATA / "scene-test-pattern.jpg"
+    with _test_pattern_guard:
+        if not poster.is_file() or poster.stat().st_size == 0:
+            temporary = poster.with_suffix(".tmp.jpg")
+            try:
+                subprocess.run([
+                    "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+                    "-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=25",
+                    "-frames:v", "1", "-q:v", "3", str(temporary)
+                ], check=True, capture_output=True, timeout=15)
+                if not temporary.is_file() or temporary.stat().st_size == 0:
+                    raise ValueError("Blank test pattern")
+                temporary.replace(poster)
+            except (OSError, ValueError, subprocess.SubprocessError) as error:
+                temporary.unlink(missing_ok=True)
+                raise HTTPException(status_code=503, detail="ساخت تصویر پس‌زمینه آزمایشی ناموفق بود.") from error
+    return FileResponse(poster, media_type="image/jpeg",
+                        headers={"Cache-Control": "private, max-age=3600"})
+
+
 @app.get("/api/media/poster/{media_id}")
 def media_poster(request: Request, media_id: int):
     authorize(request)
