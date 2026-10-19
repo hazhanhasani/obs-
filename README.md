@@ -6,7 +6,7 @@
 
 **Stream once. Run continuously. Manage from anywhere.**
 
-[![Version](https://img.shields.io/badge/version-0.3.0--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
+[![Version](https://img.shields.io/badge/version-0.3.1--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Self Hosted](https://img.shields.io/badge/deployment-self--hosted-172436?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Powered by](https://img.shields.io/badge/media-FFmpeg%20%2B%20MediaMTX-19bd93?style=flat-square)](https://github.com/hazhanhasani/obs-)
 
@@ -18,7 +18,7 @@
 
 ## ✨ Design preview
 
-> **Concept designs — not screenshots from a tested deployment.** Some controls, counters, and features shown here are illustrative and are not yet available in the v0.3.0 alpha. These images show the approved design direction.
+> **Concept designs — not screenshots from a tested deployment.** Some controls, counters, and features shown here are illustrative and are not yet available in the v0.3.1 alpha. These images show the approved design direction.
 
 <div align="center">
 
@@ -47,7 +47,7 @@
 
 Unlike a traditional desktop-based streaming setup, **StreamCore runs its media pipeline on your own Linux VPS**. Your computer and phone do not need to stay online. The browser is only used to configure and monitor your streams.
 
-| Capability | v0.3.0 alpha |
+| Capability | v0.3.1 alpha |
 |:--|:--|
 | Server-generated live test broadcast | ✅ Implemented |
 | Upload H.264 files to VPS | ✅ Implemented |
@@ -61,6 +61,16 @@ Unlike a traditional desktop-based streaming setup, **StreamCore runs its media 
 | External live input URL ingest | 🛠️ Planned |
 | Viewer analytics and advanced graphs | 🛠️ Planned |
 | Protected paid/private HLS | 🛠️ Planned |
+
+## 📤 Reliable mobile media uploads (v0.3.1)
+
+Upload MP4/MKV/MOV H.264 files directly to your VPS with a live percentage,
+cancel control, backend size limit, and codec validation. The viewer preview
+now stops automatically when you navigate away from the dashboard, preventing
+the test-pattern video from floating over other screens on mobile.
+
+Already installed? Pull the latest main branch, then rebuild the dashboard
+using Docker Compose. Read the [Upload Troubleshooting Guide](docs/UPLOAD_TROUBLESHOOTING.md).
 
 ## 📡 Multistream: live on multiple platforms
 
@@ -160,7 +170,7 @@ For full configuration and safety notes, see the [deployment guide](docs/DEPLOYM
 
 ## 📜 License and status
 
-**Development status:** v0.3.0 alpha — not yet validated for production deployment. No open-source license has been granted for this repository. All rights reserved unless a license is added.
+**Development status:** v0.3.1 alpha — not yet validated for production deployment. No open-source license has been granted for this repository. All rights reserved unless a license is added.
 
 <div align="center">
 
