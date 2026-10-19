@@ -7,6 +7,7 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 from pathlib import Path
 from text_effects import (MAX_TEXT_LAYERS, COLOR, check_timing,
                           render_text_layer, effect_filters)
@@ -192,6 +193,46 @@ def _audio_present(path):
 def _even(value):
     return max(2,int(value)//2*2)
 
+def scene_encoder_profile():
+    """Bound encoder CPU demand on shared VPS plans.
+
+    Invalid values are rejected, not silently passed through to FFmpeg.
+    Only a small preset allowlist is accepted to avoid arbitrary arguments.
+    """
+    preset = os.getenv("SCENE_ENCODER_PRESET", "ultrafast").lower().strip()
+    if preset not in {"ultrafast", "superfast", "veryfast"}:
+        raise ValueError("SCENE_ENCODER_PRESET must be ultrafast, superfast or veryfast.")
+    try:
+        threads = int(os.getenv("SCENE_ENCODER_THREADS", "2"))
+        bitrate = int(os.getenv("SCENE_VIDEO_BITRATE_KBPS", "2500"))
+    except ValueError as error:
+        raise ValueError("Scene encoding settings must be integers.") from error
+    if not 1 <= threads <= 4:
+        raise ValueError("SCENE_ENCODER_THREADS must be between 1 and 4.")
+    if not 800 <= bitrate <= 6000:
+        raise ValueError("SCENE_VIDEO_BITRATE_KBPS must be between 800 and 6000.")
+    return preset, threads, bitrate
+
+
+def preflight_scene(media_root, base_file, layers, text_layers):
+    """Catch missing files, unsupported fonts and invalid filter expressions BEFORE
+    persisting the new layout or interrupting an active channel.
+    """
+    scene_encoder_profile()
+    if base_file:
+        _media_file(media_root, base_file)
+    for i, layer in enumerate(layers):
+        _media_file(media_root, layer.media_file)
+        item = layer.model_dump() if hasattr(layer, "model_dump") else vars(layer)
+        effect_filters(item, i + 1, "v0", i + 1)
+    if text_layers:
+        with tempfile.TemporaryDirectory(prefix="streamcore-scene-check-") as directory:
+            for i, layer in enumerate(text_layers):
+                item = layer.model_dump() if hasattr(layer, "model_dump") else vars(layer)
+                render_text_layer(item, Path(directory) / f"text_{i}.png")
+                effect_filters({**item, "fit": "contain"}, i + 1, "v0", i + 1)
+
+
 def scene_command(connect, channel, base_file, media_root, target, text_cache=None):
     """Build ONE FFmpeg pipeline for all media/text overlays."""
     with connect() as db:
@@ -248,13 +289,16 @@ def scene_command(connect, channel, base_file, media_root, target, text_cache=No
         graph.extend(effect_filters(layer, overlay_index, previous, overlay_index))
         previous = f"v{overlay_index}"
     graph.append(f"[{previous}]format=yuv420p[vout]")
+    preset, threads, bitrate = scene_encoder_profile()
     # The base clip supplies audio if possible. Extra videos/images are muted.
     silence_input_index = overlay_index + 1
     args += ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"]
     audio_source = "0:a:0" if base_has_audio else f"{silence_input_index}:a:0"
-    return (["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "warning"] + args +
+    return (["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "warning",
+             "-filter_complex_threads", str(threads)] + args +
             ["-filter_complex", ";".join(graph), "-map", "[vout]", "-map", audio_source,
-             "-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency",
-             "-pix_fmt", "yuv420p", "-r", str(FPS), "-g", "50",
-             "-b:v", "2500k", "-maxrate", "2500k", "-bufsize", "5000k",
+             "-c:v", "libx264", "-threads", str(threads), "-preset", preset,
+             "-tune", "zerolatency", "-pix_fmt", "yuv420p", "-r", str(FPS),
+             "-g", "50", "-b:v", f"{bitrate}k", "-maxrate", f"{bitrate}k",
+             "-bufsize", f"{bitrate * 2}k",
              "-c:a", "aac", "-ar", "48000", "-b:a", "128k", "-f", "flv", target])
