@@ -6,7 +6,7 @@
 
 **Stream once. Run continuously. Manage from anywhere.**
 
-[![Version](https://img.shields.io/badge/version-0.5.2--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
+[![Version](https://img.shields.io/badge/version-0.5.3--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Self Hosted](https://img.shields.io/badge/deployment-self--hosted-172436?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Powered by](https://img.shields.io/badge/media-FFmpeg%20%2B%20MediaMTX-19bd93?style=flat-square)](https://github.com/hazhanhasani/obs-)
 
@@ -18,7 +18,7 @@
 
 ## ✨ Design preview
 
-> **Concept designs — not screenshots from a tested deployment.** Some controls, counters, and features shown here are illustrative and are not yet available in the v0.5.2 alpha. These images show the approved design direction.
+> **Concept designs — not screenshots from a tested deployment.** Some controls, counters, and features shown here are illustrative and are not yet available in the v0.5.3 alpha. These images show the approved design direction.
 
 <div align="center">
 
@@ -47,7 +47,7 @@
 
 Unlike a traditional desktop-based streaming setup, **StreamCore runs its media pipeline on your own Linux VPS**. Your computer and phone do not need to stay online. The browser is only used to configure and monitor your streams.
 
-| Capability | v0.5.2 alpha |
+| Capability | v0.5.3 alpha |
 |:--|:--|
 | Server-generated live test broadcast | ✅ Implemented |
 | Upload H.264 videos and PNG/JPG/WebP still images | ✅ Implemented |
@@ -64,6 +64,25 @@ Unlike a traditional desktop-based streaming setup, **StreamCore runs its media 
 | External live input URL ingest | 🛠️ Planned |
 | Viewer analytics and advanced graphs | 🛠️ Planned |
 | Protected paid/private HLS | 🛠️ Planned |
+
+## 🎯 Mobile touch-target visual fix — v0.5.3-alpha
+
+A user-provided 20-second Android recording confirmed the resize algorithm was
+reducing the logo correctly, but two visual defects made the operation look
+broken: the **entire 16:9 canvas** received an orange highlight during dragging,
+and a **40px solid-orange resize square** covered most of a logo resized to 11%.
+
+In v0.5.3, the canvas no longer glows orange, the selected image alone has an
+orange outline, and the resize control now has a **small 14px visible grip**
+outside the image corner with a larger transparent 42px mobile touch target.
+This keeps even small logos visible while preserving touch ergonomics.
+
+Mobile touch/caching safeguards from v0.5.2 remain in place. The editor assets
+are explicitly versioned to `?v=0.5.3`. Twelve source-based touch and
+UI regression cases now pass; **real Android device and VPS verification
+remain pending**.
+
+Read the [Android debugging guide](docs/MOBILE_SCENE_DEBUG.md) for safe rollout.
 
 ## 📱 Mobile Scene Editor Stability — v0.5.2-alpha
 
@@ -261,7 +280,7 @@ For full configuration and safety notes, see the [deployment guide](docs/DEPLOYM
 
 ## 📜 License and status
 
-**Development status:** v0.5.2 alpha — not yet validated for production deployment. No open-source license has been granted for this repository. All rights reserved unless a license is added.
+**Development status:** v0.5.3 alpha — not yet validated for production deployment. No open-source license has been granted for this repository. All rights reserved unless a license is added.
 
 <div align="center">
 
