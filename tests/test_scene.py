@@ -82,7 +82,7 @@ class SceneUnitTests(unittest.TestCase):
             save_scene(self.connect,"main",None,[invalid])
         with self.assertRaises(ValueError):
             save_scene(self.connect,"main","logo.png",[])
-        with self.assertRaises(ValueError):
+        with self.assertRaises(LookupError):
             save_scene(self.connect,"notfound",None,[])
 
 
