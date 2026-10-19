@@ -411,14 +411,17 @@
       startX:e.clientX,startY:e.clientY,
       x:item.x,y:item.y,w:item.w,h:item.h,
       width:canvas.width,height:canvas.height,
-      type:resize?"resize":"move",corner,changed:false
+      type:resize?"resize":"move",corner,changed:false,
+      source:e.gestureSource||"pointer"
     };
     activateLayer(item.layer_id);
     $("scene-canvas").classList.add("scene-gesturing");
     recordGeometry();
     // Mobile Chromium can report a lost capture after rotation/scroll,
     // and WebViews may reject capture. Window listeners provide a fallback.
-    try{$("scene-items").setPointerCapture?.(e.pointerId);}catch(_){}
+    if(drag.source==="pointer"){
+      try{$("scene-items").setPointerCapture?.(e.pointerId);}catch(_){}
+    }
     e.preventDefault?.();
   }
   function onPointerMove(e){
@@ -438,8 +441,9 @@
     });
     for(const name of ["x","y","w","h"])$("scene-"+name).value=l[name];
     recordGeometry();
-    if(old.some((value,i)=>value!==[l.x,l.y,l.w,l.h][i])){
+    if(!drag.changed && old.some((value,i)=>value!==[l.x,l.y,l.w,l.h][i])){
       drag.changed=true;
+      // Expensive preview invalidation belongs to the first changed frame.
       markDirty();
     }
     e.preventDefault?.();
@@ -451,9 +455,11 @@
     drag=null;
     $("scene-canvas").classList.remove("scene-gesturing");
     const root=$("scene-items");
-    try{
-      if(root.hasPointerCapture?.(e.pointerId))root.releasePointerCapture(e.pointerId);
-    }catch(_){}
+    if(completed.source==="pointer"){
+      try{
+        if(root.hasPointerCapture?.(e.pointerId))root.releasePointerCapture(e.pointerId);
+      }catch(_){}
+    }
     if(completed.changed || pendingRender)preview();
   }
   function onCaptureLost(e){
@@ -463,6 +469,40 @@
     drag.captureLost=true;
     // If a WebView never sends pointerup, the following real pointerdown
     // can safely finalize the old draft before starting another gesture.
+  }
+  // Android WebViews may deliver Touch Events without usable Pointer Events.
+  // Track a single Touch.identifier to prevent the second finger moving a layer.
+  function onTouchStart(e){
+    if(drag)return;
+    const t=e.changedTouches?.[0];
+    if(!t)return;
+    onPointerDown({target:e.target,pointerId:"touch:"+t.identifier,
+      pointerType:"touch",button:0,clientX:t.clientX,clientY:t.clientY,
+      gestureSource:"touch",preventDefault:()=>e.preventDefault?.()});
+  }
+  function onTouchContinue(e,end){
+    if(!drag || drag.source!=="touch")return;
+    const t=Array.from(e.changedTouches||[]).find(t=>"touch:"+t.identifier===drag.pointerId);
+    if(!t)return;
+    const event={pointerId:drag.pointerId,clientX:t.clientX,clientY:t.clientY,
+      type:end?(e.type==="touchcancel"?"pointercancel":"pointerup"):"pointermove",
+      preventDefault:()=>e.preventDefault?.()};
+    if(end)pointerDone(event);
+    else onPointerMove(event);
+  }
+  // Older embedded desktop dashboards may only emit Mouse Events.
+  function onMouseStart(e){
+    if(drag || e.button!==0)return;
+    onPointerDown({target:e.target,pointerId:"legacy-mouse",pointerType:"mouse",
+      button:0,clientX:e.clientX,clientY:e.clientY,
+      gestureSource:"mouse",preventDefault:()=>e.preventDefault?.()});
+  }
+  function onMouseContinue(e,end){
+    if(!drag || drag.source!=="mouse")return;
+    const event={pointerId:drag.pointerId,clientX:e.clientX,clientY:e.clientY,
+      type:end?"pointerup":"pointermove",preventDefault:()=>e.preventDefault?.()};
+    if(end)pointerDone(event);
+    else onPointerMove(event);
   }
   function centerSelected(){
     if(drag)return;
@@ -528,6 +568,15 @@
     $("scene-items").addEventListener("pointerup",pointerDone);
     $("scene-items").addEventListener("pointercancel",pointerDone);
     $("scene-items").addEventListener("lostpointercapture",onCaptureLost);
+    // Legacy events are ignored while the standard pointer gesture is active.
+    // Window listeners keep a drag going even outside the video canvas.
+    $("scene-items").addEventListener("touchstart",onTouchStart,{passive:false});
+    window.addEventListener("touchmove",e=>onTouchContinue(e,false),{passive:false});
+    window.addEventListener("touchend",e=>onTouchContinue(e,true));
+    window.addEventListener("touchcancel",e=>onTouchContinue(e,true));
+    $("scene-items").addEventListener("mousedown",onMouseStart);
+    window.addEventListener("mousemove",e=>onMouseContinue(e,false));
+    window.addEventListener("mouseup",e=>onMouseContinue(e,true));
     // Capture fallback: a finger can move beyond the layer or the whole canvas.
     window.addEventListener("pointermove",onPointerMove);
     window.addEventListener("pointerup",pointerDone);
