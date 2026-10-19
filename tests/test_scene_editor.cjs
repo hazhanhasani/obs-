@@ -301,3 +301,32 @@ test("studio warns when saved channel is not in Scene mode",async()=>{
   assert.equal(status.dataset.warning,"true");
   assert.match(status.textContent,/حالت file/);
 });
+
+test("wrong-channel notice offers an explicit Telegram channel switch",async()=>{
+  const h=harness();await h.open();
+  h.window.StreamCoreScene.sync({
+    media:[{id:7,file:"logo.png",name:"Brand logo",kind:"image"}],
+    channels:[
+      {id:"main",name:"Main",mode:"scene",running:true},
+      {id:"other",name:"Other",mode:"scene",running:true}
+    ],
+    destinations:[{channel_id:"other",platform:"telegram",label:"Telegram",enabled:true}]
+  });
+  const button=h.document.getElementById("scene-go-telegram");
+  assert.equal(button.hidden,false);
+  assert.equal(button.dataset.channel,"other");
+  await button.listeners.get("click")();
+  assert.equal(h.document.getElementById("scene-channel").value,"other");
+});
+
+test("encoder stall is explicitly highlighted rather than represented as healthy live",async()=>{
+  const h=harness();await h.open();
+  h.window.StreamCoreScene.sync({
+    media:[{id:7,file:"logo.png",name:"Brand logo",kind:"image"}],
+    channels:[{id:"main",name:"Main",mode:"scene",running:true,encoder:{state:"stalled"}}],
+    destinations:[{channel_id:"main",platform:"telegram",label:"Telegram",enabled:true}]
+  });
+  const node=h.document.getElementById("scene-output-bindings");
+  assert.equal(node.dataset.warning,"true");
+  assert.match(node.textContent,/پردازش FFmpeg/);
+});
