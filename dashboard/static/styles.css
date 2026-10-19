@@ -26,3 +26,27 @@
 .upload-progress progress::-webkit-progress-value{background:linear-gradient(90deg,#fd7434,#fa4e0e);border-radius:10px}
 .upload-progress #upload-cancel{margin-top:13px}
 #upload-result{overflow-wrap:anywhere;line-height:1.9}
+
+/* v0.6.0 Encoder health: local FFmpeg statistics, responsive and readable on mobile. */
+.encoder-monitor{margin-top:20px;margin-bottom:20px}
+.encoder-monitor .panel-heading{margin-bottom:12px}
+.encoder-summary{display:flex;gap:18px;flex-wrap:wrap;justify-content:space-between;align-items:center}
+.encoder-summary-title{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px}
+.encoder-kpis{display:flex;gap:15px;flex-wrap:wrap;justify-content:flex-end}
+.encoder-kpis>span{display:flex;flex-direction:column;gap:5px;min-width:65px}
+.encoder-kpis small{font-size:10px;color:#90a1b3}
+.encoder-kpis strong{font-size:15px;font-weight:750;font-variant-numeric:tabular-nums;direction:ltr;text-align:right}
+.encoder-state{display:inline-flex;align-items:center;white-space:nowrap;padding:6px 10px;border:1px solid #39495c;background:#202d3b;color:#afc1cf;border-radius:9px;font-size:11px;font-weight:700}
+.encoder-state.healthy{border-color:#215c4e;background:#153a32;color:#77e0bd}
+.encoder-state.slow,.encoder-state.no-data{border-color:#745326;background:#40311c;color:#ffc780}
+.encoder-state.stalled{border-color:#843b37;background:#432725;color:#ffb1a6}
+.encoder-disclaimer{color:#8ca0b6;font-size:11px;line-height:1.9;margin:15px 0 0}
+.encoder-detail-panel{margin-top:20px}
+.encoder-table{min-width:680px}
+.encoder-table td{font-size:12px;font-variant-numeric:tabular-nums}
+.encoder-table td:not(:first-child){white-space:nowrap}
+@media(max-width:620px){
+ .encoder-kpis{width:100%;justify-content:space-between;gap:8px}
+ .encoder-kpis>span{flex:1;min-width:57px}
+ .encoder-kpis strong{font-size:13px}
+}
