@@ -6,7 +6,7 @@
 
 **Stream once. Run continuously. Manage from anywhere.**
 
-[![Version](https://img.shields.io/badge/version-0.6.0--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
+[![Version](https://img.shields.io/badge/version-0.6.1--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Self Hosted](https://img.shields.io/badge/deployment-self--hosted-172436?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Powered by](https://img.shields.io/badge/media-FFmpeg%20%2B%20MediaMTX-19bd93?style=flat-square)](https://github.com/hazhanhasani/obs-)
 
@@ -65,6 +65,34 @@ Unlike a traditional desktop-based streaming setup, **StreamCore runs its media 
 | External live input URL ingest | 🛠️ Planned |
 | Viewer analytics and advanced graphs | 🛠️ Planned |
 | Protected paid/private HLS | 🛠️ Planned |
+
+## 🎯 Studio-to-live output parity — v0.6.1-alpha
+
+StreamCore now distinguishes the **CSS layout editor**, the authenticated
+**FFmpeg-encoded draft snapshot**, and the **actual channel sent to a platform**.
+
+- The button **رندر خروجی قبل از ذخیره** sends the current unpublished scene to
+  a bounded server-side FFmpeg render without changing its live channel.
+- A new live-binding indicator inside Scene Studio shows which channel is
+  selected, whether that channel is in `scene` mode, and which multistream
+  destinations are configured for it.
+- If Telegram is connected to a different channel, Studio displays an explicit
+  warning and an opt-in **ویرایش کانالی که به تلگرام متصل است** button.
+- Encoder stalled/no-data telemetry is highlighted instead of implying that
+  a running FFmpeg process confirms successful delivery.
+- Preview letterboxes are black, matching the H.264 canvas rather than the
+  previous dark-blue editor background.
+- Scene JS and CSS assets use cache-busting version `v0.6.1`; 16 mobile UI,
+  binding and pointer tests pass in the source-level JS harness.
+
+**Preview limitations:** The server snapshot shows the first encoded frame;
+a later timed overlay or a Fade animation can be invisible at that instant.
+The Telegram client may buffer old frames, and the `LIVE` indicator alone
+does not confirm external platform delivery. Verify the selected channel,
+destination and HLS stream after saving.
+
+The connected VPS has **not been upgraded in this turn**. The source patch
+is on `main` pending a controlled rollout and real live comparison.
 
 ## 📊 Per-channel streaming health — v0.6.0-alpha
 
