@@ -547,6 +547,8 @@ def get_scene(request: Request, channel: str):
 def update_scene(request: Request, channel: str, body: SceneInput):
     authorize(request, unsafe=True)
     try:
+        # Check channel identity before resolving files or rendering expensive fonts.
+        scene_for(connect, channel)
         # Validate external files, fonts, timing and FFmpeg filter generation
         # before saving the scene or stopping the currently running publisher.
         preflight_scene(MEDIA, body.base_file, body.layers, body.text_layers)
