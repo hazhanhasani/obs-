@@ -98,7 +98,19 @@
     item.fit=$("scene-fit").value;
     markDirty();preview();
   }
-  function select(id){selected=id;preview();}
+  // Do not reconstruct the layer DOM while a pointer is active: replacing the
+  // touched element loses Pointer Capture on mobile and snaps the size back.
+  function activateLayer(id){
+    selected=id;
+    $("scene-items").querySelectorAll(".scene-item").forEach(el=>{
+      el.classList.toggle("selected",el.dataset.layer===id);
+    });
+    $("scene-layer-list").querySelectorAll(".scene-list-row").forEach(el=>{
+      el.classList.toggle("active",el.dataset.selectLayer===id);
+    });
+    renderProperties();
+  }
+  function select(id){if(drag){activateLayer(id);return;}selected=id;preview();}
   function changeOrder(id,delta){
     const i=layers.findIndex(l=>l.layer_id===id);
     const j=i+delta;
@@ -131,37 +143,69 @@
     }catch(e){toast(e.message);button.disabled=false;}
     finally{button.textContent="ذخیره و اعمال صحنه";}
   }
+  // Pointer capture belongs to the persistent scene-items container, not to
+  // .scene-item nodes regenerated during preview updates.
   function onPointerDown(e){
+    if(drag || (e.pointerType==="mouse" && e.button!==0))return;
     const el=e.target.closest(".scene-item");
     if(!el)return;
-    const item=layers.find(l=>l.layer_id===el.dataset.layer);if(!item)return;
-    select(item.layer_id);
-    const current=$("scene-items").querySelector('[data-layer="'+item.layer_id+'"]');
-    const rect=$("scene-canvas").getBoundingClientRect();
-    drag={id:item.layer_id,startX:e.clientX,startY:e.clientY,
+    const item=layers.find(l=>l.layer_id===el.dataset.layer);
+    if(!item)return;
+    const canvas=$("scene-canvas").getBoundingClientRect();
+    if(canvas.width<=0 || canvas.height<=0)return;
+    const resize=!!e.target.closest(".scene-handle");
+    drag={
+      pointerId:e.pointerId,id:item.layer_id,
+      startX:e.clientX,startY:e.clientY,
       x:item.x,y:item.y,w:item.w,h:item.h,
-      type:e.target.closest(".scene-handle")?"resize":"move",width:rect.width,height:rect.height};
-    current?.setPointerCapture(e.pointerId);
+      width:canvas.width,height:canvas.height,
+      type:resize?"resize":"move",changed:false
+    };
+    activateLayer(item.layer_id);
+    // Capturing on the stable parent ensures pointerup is delivered even when
+    // the finger moves outside the overlay or changes its bounds.
+    try{$("scene-items").setPointerCapture(e.pointerId);}catch(_){}
     e.preventDefault();
   }
   function onPointerMove(e){
-    if(!drag)return;
-    const l=layers.find(x=>x.layer_id===drag.id);if(!l)return;
+    if(!drag || e.pointerId!==drag.pointerId)return;
+    const l=layers.find(x=>x.layer_id===drag.id);
+    if(!l)return;
     const dx=Math.round((e.clientX-drag.startX)*100/drag.width);
     const dy=Math.round((e.clientY-drag.startY)*100/drag.height);
+    const old=[l.x,l.y,l.w,l.h];
     if(drag.type==="resize"){
-      l.w=clamp(drag.w+dx,5,100-l.x);
-      l.h=clamp(drag.h+dy,5,100-l.y);
+      l.w=clamp(drag.w+dx,5,100-drag.x);
+      l.h=clamp(drag.h+dy,5,100-drag.y);
     }else{
-      l.x=clamp(drag.x+dx,0,100-l.w);
-      l.y=clamp(drag.y+dy,0,100-l.h);
+      l.x=clamp(drag.x+dx,0,100-drag.w);
+      l.y=clamp(drag.y+dy,0,100-drag.h);
     }
     const element=$("scene-items").querySelector('[data-layer="'+l.layer_id+'"]');
-    if(element)Object.assign(element.style,{left:l.x+"%",top:l.y+"%",width:l.w+"%",height:l.h+"%"});
-    for(const n of fieldNames){if($("scene-"+n).value!=l[n])$("scene-"+n).value=l[n];}
-    markDirty();
+    if(element)Object.assign(element.style,{
+      left:l.x+"%",top:l.y+"%",width:l.w+"%",height:l.h+"%"
+    });
+    for(const n of ["x","y","w","h"])$("scene-"+n).value=l[n];
+    if(old.some((value,i)=>value!==[l.x,l.y,l.w,l.h][i])){
+      drag.changed=true;
+      markDirty();
+    }
+    e.preventDefault();
   }
-  function pointerDone(){if(!drag)return;drag=null;preview();}
+  function pointerDone(e){
+    if(!drag || e.pointerId!==drag.pointerId)return;
+    // Some mobile browsers deliver the final coordinates only on pointerup.
+    if(e.type==="pointerup")onPointerMove(e);
+    const completed=drag;
+    drag=null;
+    const root=$("scene-items");
+    try{
+      if(root.hasPointerCapture(e.pointerId))root.releasePointerCapture(e.pointerId);
+    }catch(_){}
+    // A full re-render is now safe, because the gesture has ended and the
+    // actual layer model already contains the final positions.
+    if(completed.changed)preview();
+  }
   function init(deps){
     api=deps.api;toast=deps.toast;page=deps.page;
     $("scene-channel").addEventListener("change",e=>open(e.target.value));
@@ -187,6 +231,9 @@
     $("scene-items").addEventListener("pointerup",pointerDone);
     $("scene-items").addEventListener("pointercancel",pointerDone);
     $("scene-items").addEventListener("lostpointercapture",pointerDone);
+    // Secondary safety net for WebViews with incomplete pointer-capture.
+    window.addEventListener("pointerup",pointerDone);
+    window.addEventListener("pointercancel",pointerDone);
   }
   window.StreamCoreScene={init,sync,open,hasUnsaved:()=>dirty};
 })();
