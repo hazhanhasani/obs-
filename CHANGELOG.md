@@ -4,6 +4,22 @@ All significant StreamCore changes are documented here.
 
 This project is still in alpha; stable release guarantees and migration automation are not yet available.
 
+## [0.7.2-alpha] — 2026-10-19
+
+### Fixed
+- Removed 0..100% viewport confinement from scene layer position and bounds.
+- Matched media and text layer validation to FFmpeg's offscreen overlay
+  semantics; negative and larger-than-canvas positions no longer fail Save.
+- Added independent NW, NE, SW and SE mobile resize handles with opposite-edge
+  anchoring; unchanged selected layer DOM while pointer capture is active.
+- Added dedicated recovery control for layers that leave the visible canvas.
+- Added 0.1% precision numeric X/Y/Width/Height editing.
+
+### Validation
+- Scene touch gestures, four-corner anchors, offscreen transforms and
+  real FFmpeg/JPEG clipping tests are covered by automated regression tests.
+- CI and VPS streaming verification must pass before live deployment.
+
 ## [0.7.1-alpha] — 2026-10-19
 
 ### Fixed
