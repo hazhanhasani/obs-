@@ -81,3 +81,16 @@
 .scene-handle:focus-visible{outline:2px solid #fff;outline-offset:0}
 .scene-handle::after{transition:transform 120ms ease}
 .scene-gesturing .scene-handle::after{transform:scale(1.12)}
+
+/* 0.5.4 — the server-encoded frame is the authoritative source of scene pixels. */
+.scene-actual-preview{margin-top:18px;padding:14px;border:1px solid #34485f;border-radius:12px;background:#101b29}
+.scene-actual-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.scene-actual-heading strong{font-size:14px;color:#e7f2fb}
+.scene-actual-heading button{width:auto;min-width:0;margin:0}
+.scene-actual-status{margin:10px 0;line-height:1.8;color:#9babbc;font-size:12px}
+.scene-render-image{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:contain;border-radius:8px;border:1px solid #42546b;background:#03080d}
+.scene-render-image[hidden]{display:none}
+@media(max-width:500px){
+  .scene-actual-heading{align-items:stretch}
+  .scene-actual-heading button{width:100%}
+}
