@@ -5,11 +5,12 @@
 .scene-canvas>img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
 .scene-test-bars{position:absolute;inset:0;background:linear-gradient(90deg,#d7d7d7 0 14.28%,#f6ed28 14.28% 28.56%,#23e6e6 28.56% 42.84%,#31e52e 42.84% 57.12%,#d842d8 57.12% 71.4%,#de3e3e 71.4% 85.68%,#2c4ddb 85.68% 100%);opacity:.25}
 .scene-items{position:absolute;inset:0;touch-action:none}
-.scene-item{position:absolute;border:1px solid #c1d3ea;cursor:grab;touch-action:none;overflow:hidden;box-shadow:0 4px 16px #0008;background:#16273955}
+.scene-item{position:absolute;border:1px solid #c1d3ea;cursor:grab;touch-action:none;overflow:visible;box-shadow:0 4px 16px #0008;background:#16273955}
 .scene-item.selected{border:2px solid #ff772a;box-shadow:0 0 0 1px #0a111c,0 3px 18px #ff6a2566}
 .scene-item:active{cursor:grabbing}
 .scene-item img{display:block;width:100%;height:100%;pointer-events:none}
-.scene-handle{position:absolute;right:0;bottom:0;width:28px;height:28px;background:#ff661d;border:3px solid #fff;border-radius:8px;cursor:nwse-resize;touch-action:none;z-index:3;box-shadow:0 0 0 2px #10203480}
+.scene-handle{position:absolute;right:-18px;bottom:-18px;width:36px;height:36px;background:transparent;border:0;border-radius:50%;cursor:nwse-resize;touch-action:none;z-index:5;box-shadow:none;display:grid;place-items:center}
+.scene-handle::after{content:"";display:block;width:14px;height:14px;box-sizing:border-box;border:2px solid #fff;border-radius:5px;background:#ff661d;box-shadow:0 1px 7px #0009;pointer-events:none}
 .scene-item-name{position:absolute;top:3px;left:3px;background:#0a101acc;color:white;border-radius:4px;padding:1px 5px;font-size:9px}
 .scene-video-chip{position:absolute;top:4px;right:5px;background:#101722cc;color:white;font-size:9px;border-radius:4px;padding:3px}
 .scene-panel-row{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin-bottom:15px}
@@ -63,12 +64,20 @@
 .scene-gesture-status{color:#a6bacb;font-size:12px;font-variant-numeric:tabular-nums;line-height:1.8}
 .scene-size-presets{display:flex;gap:8px;direction:ltr}
 .scene-size-presets .mini-action{min-width:48px}
-.scene-canvas.scene-gesturing{border-color:#ff762a;box-shadow:0 0 0 2px #ff762a4d}
-.scene-item .scene-handle{width:36px;height:36px;right:0;bottom:0;box-sizing:border-box;touch-action:none}
+.scene-canvas.scene-gesturing{border-color:#435368;box-shadow:none}
+.scene-item .scene-handle{width:36px;height:36px;right:-18px;bottom:-18px;box-sizing:border-box;touch-action:none}
 .scene-item,.scene-item *,.scene-items{-webkit-user-select:none;user-select:none;touch-action:none}
 @media(max-width:620px){
-  .scene-item .scene-handle{width:40px;height:40px;border-radius:9px}
+  .scene-item .scene-handle{width:42px;height:42px;right:-21px;bottom:-21px;border-radius:50%}
   .scene-mobile-toolbar{align-items:stretch;flex-direction:column}
   .scene-size-presets .mini-action{min-width:56px;min-height:38px}
   .scene-item.selected{outline:2px solid #ff8b47;outline-offset:-2px}
 }
+
+/* v0.5.3: small visible grip, large INVISIBLE touch target.
+   The previous 40px orange square covered a complete 11% logo on mobile. */
+.scene-item img{border-radius:3px}
+.scene-gesturing .scene-item.selected{border-color:#ff7b3f}
+.scene-handle:focus-visible{outline:2px solid #fff;outline-offset:0}
+.scene-handle::after{transition:transform 120ms ease}
+.scene-gesturing .scene-handle::after{transform:scale(1.12)}
