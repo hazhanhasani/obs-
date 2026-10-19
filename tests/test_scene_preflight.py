@@ -44,6 +44,8 @@ class SceneEncoderProfileTests(unittest.TestCase):
                 return db
             with connect() as db:
                 db.execute("CREATE TABLE media (file TEXT UNIQUE NOT NULL, kind TEXT DEFAULT 'video')")
+                db.execute("CREATE TABLE channels (id TEXT PRIMARY KEY, mode TEXT, file TEXT, desired INTEGER)")
+                db.execute("INSERT INTO channels VALUES('main','scene',NULL,0)")
             init_scene_db(connect)
             with patch.dict(os.environ, {
                 "SCENE_ENCODER_PRESET": "ultrafast",
