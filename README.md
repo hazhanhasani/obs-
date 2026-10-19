@@ -6,7 +6,7 @@
 
 **Stream once. Run continuously. Manage from anywhere.**
 
-[![Version](https://img.shields.io/badge/version-0.4.1--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
+[![Version](https://img.shields.io/badge/version-0.5.0--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Self Hosted](https://img.shields.io/badge/deployment-self--hosted-172436?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Powered by](https://img.shields.io/badge/media-FFmpeg%20%2B%20MediaMTX-19bd93?style=flat-square)](https://github.com/hazhanhasani/obs-)
 
@@ -18,7 +18,7 @@
 
 ## ✨ Design preview
 
-> **Concept designs — not screenshots from a tested deployment.** Some controls, counters, and features shown here are illustrative and are not yet available in the v0.4.1 alpha. These images show the approved design direction.
+> **Concept designs — not screenshots from a tested deployment.** Some controls, counters, and features shown here are illustrative and are not yet available in the v0.5.0 alpha. These images show the approved design direction.
 
 <div align="center">
 
@@ -47,12 +47,13 @@
 
 Unlike a traditional desktop-based streaming setup, **StreamCore runs its media pipeline on your own Linux VPS**. Your computer and phone do not need to stay online. The browser is only used to configure and monitor your streams.
 
-| Capability | v0.4.0 alpha |
+| Capability | v0.5.0 alpha |
 |:--|:--|
 | Server-generated live test broadcast | ✅ Implemented |
 | Upload H.264 videos and PNG/JPG/WebP still images | ✅ Implemented |
 | Loop a single selected video | ✅ Implemented |
 | Visual scene studio with simultaneous videos and still image overlays | ✅ Implemented (alpha) |
+| Persian/English text layers and timed Fade / Slide / Blink effects | ✅ Implemented (alpha) |
 | Drag-and-resize canvas layers; position, size, opacity, Contain/Cover | ✅ Implemented (alpha) |
 | Multi-channel create/start/stop (up to 8 configured channels) | ✅ Implemented |
 | Authenticated RTL dashboard | ✅ Implemented |
@@ -63,6 +64,24 @@ Unlike a traditional desktop-based streaming setup, **StreamCore runs its media 
 | External live input URL ingest | 🛠️ Planned |
 | Viewer analytics and advanced graphs | 🛠️ Planned |
 | Protected paid/private HLS | 🛠️ Planned |
+
+## ✍️ Text overlays and animated scenes — v0.5.0
+
+StreamCore now supports up to **5 Persian/English text layers** per channel,
+in addition to the video and image overlays. Drag and resize text directly
+in Scene Studio, choose text color, alignment, size, outline, background and opacity.
+
+Images, logos and text can use lightweight **Fade, Slide Left, Slide Right,
+Blink** and static effects with a configurable **Start / Duration / Repeat**
+timeline. Mixed RTL/LTR text is shaped by Pillow and rendered into a private
+PNG layer before being composited by FFmpeg (no raw text is embedded in filter expressions).
+
+**Limitation:** Fade animates only on the first occurrence of a repeated window.
+Zoom/Typewriter and per-platform aspect ratios are future work. The scene
+editor's animation preview is an approximation; see the actual live output
+in the Dashboard. This release remains alpha and needs a VPS smoke test.
+
+**[Text & Effects Guide](docs/TEXT_EFFECTS.md)**
 
 ## 🛠️ Touch resize fix — v0.4.1
 
@@ -202,7 +221,7 @@ For full configuration and safety notes, see the [deployment guide](docs/DEPLOYM
 
 ## 📜 License and status
 
-**Development status:** v0.4.0 alpha — not yet validated for production deployment. No open-source license has been granted for this repository. All rights reserved unless a license is added.
+**Development status:** v0.5.0 alpha — not yet validated for production deployment. No open-source license has been granted for this repository. All rights reserved unless a license is added.
 
 <div align="center">
 
