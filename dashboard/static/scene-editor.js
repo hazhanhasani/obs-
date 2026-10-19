@@ -6,10 +6,14 @@
   const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
   const safe=(x)=>String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   let api,overview,page,toast;
-  let channel=null,baseFile=null,layers=[],selected=null,dirty=false,drag=null;
+  let channel=null,baseFile=null,layers=[],textLayers=[],selected=null,dirty=false,drag=null;
   let media=[],loadSequence=0;
   const fieldNames=["x","y","w","h","opacity"];
   const byFile=(name)=>media.find(m=>m.file===name);
+  const getLayer=(id)=>layers.find(l=>l.layer_id===id)||textLayers.find(l=>l.layer_id===id);
+  const isText=(l)=>!!l&&typeof l.text==="string";
+  const normalize=(l)=>({...l,effect:l.effect||"none",start_sec:Number(l.start_sec)||0,
+    duration_sec:Number(l.duration_sec)||0,repeat_sec:Number(l.repeat_sec)||0});
   const poster=(name)=>{const m=byFile(name);return m?"/api/media/poster/"+m.id:"";};
   const fileName=(name)=>byFile(name)?.name||"Unknown file";
   function markDirty(){dirty=true;$("scene-save").disabled=false;$("scene-note").textContent="تغییرات هنوز ذخیره نشده‌اند.";}
@@ -26,36 +30,62 @@
     $("scene-add").disabled=!media.length;
   }
   function preview(){
-    const bg=$("scene-base-image");
-    const source=baseFile?poster(baseFile):"";
-    if(source){bg.src=source;bg.hidden=false;$("scene-colorbars").hidden=true;}
+    const bg=$("scene-base-image"),src=baseFile?poster(baseFile):"";
+    if(src){bg.src=src;bg.hidden=false;$("scene-colorbars").hidden=true;}
     else{bg.hidden=true;bg.removeAttribute("src");$("scene-colorbars").hidden=false;}
-    $("scene-items").innerHTML=layers.map((l,i)=>{
+    const mediaHtml=layers.map((l,i)=>{
       const m=byFile(l.media_file);
       const css='left:'+l.x+'%;top:'+l.y+'%;width:'+l.w+'%;height:'+l.h+'%;opacity:'+(l.opacity/100)+';';
       return '<div class="scene-item '+(selected===l.layer_id?"selected":"")+'" data-layer="'+safe(l.layer_id)+'" style="'+css+'" tabindex="0" role="button" aria-label="انتخاب لایه '+(i+1)+'">'
         +'<img draggable="false" src="'+poster(l.media_file)+'" style="object-fit:'+safe(l.fit)+'" alt="">'
         +(m?.kind==="video"?'<span class="scene-video-chip"><i class="bi bi-play-fill"></i> ویدئو</span>':'')
         +'<span class="scene-item-name">'+(i+1)+'</span><span class="scene-handle" title="تغییر اندازه"></span></div>';
-    }).join("");
-    $("scene-layer-list").innerHTML=layers.map((l,i)=>'<div class="scene-list-row '+(l.layer_id===selected?"active":"")+'" data-select-layer="'+safe(l.layer_id)+'">'
-      +'<span class="scene-list-icon"><i class="bi '+(byFile(l.media_file)?.kind==="image"?"bi-image":"bi-film")+'"></i></span>'
-      +'<span class="scene-list-name">'+safe(fileName(l.media_file))+'<small>لایه '+(i+1)+'</small></span>'
-      +'<button data-layer-up="'+safe(l.layer_id)+'" class="mini-action" aria-label="انتقال لایه به بالا" title="انتقال به بالا">↑</button>'
-      +'<button data-layer-down="'+safe(l.layer_id)+'" class="mini-action" aria-label="انتقال لایه به پایین" title="انتقال به پایین">↓</button>'
-      +'<button data-layer-remove="'+safe(l.layer_id)+'" class="mini-action danger" title="حذف لایه">×</button></div>').join("")
-      || '<p class="empty-state">هنوز لایه‌ای اضافه نشده است.</p>';
+    });
+    const textHtml=textLayers.map((l,i)=>{
+      const css='left:'+l.x+'%;top:'+l.y+'%;width:'+l.w+'%;height:'+l.h+'%;opacity:'+(l.opacity/100)+';';
+      const bg=l.background==="transparent"?"transparent":safe(l.background);
+      const size=(l.font_size/1280*100).toFixed(3)+"cqw";
+      return '<div class="scene-item scene-text-item '+(selected===l.layer_id?"selected":"")+'" data-layer="'+safe(l.layer_id)+'" style="'+css+'" tabindex="0" role="button" aria-label="متن '+(i+1)+'">'
+        +'<span class="scene-text-content" dir="auto" style="font-size:'+size+';color:'+safe(l.color)+';text-align:'+safe(l.align)+';background:'+bg+';">'+safe(l.text)+'</span>'
+        +'<span class="scene-item-name">T'+(i+1)+'</span><span class="scene-handle" title="تغییر اندازه"></span></div>';
+    });
+    $("scene-items").innerHTML=[...mediaHtml,...textHtml].join("");
+    function listItem(l,i,textLayer){
+      const icon=textLayer?"bi-fonts":byFile(l.media_file)?.kind==="image"?"bi-image":"bi-film";
+      const label=textLayer?l.text:fileName(l.media_file);
+      return '<div class="scene-list-row '+(l.layer_id===selected?"active":"")+'" data-select-layer="'+safe(l.layer_id)+'">'
+        +'<span class="scene-list-icon"><i class="bi '+icon+'"></i></span>'
+        +'<span class="scene-list-name">'+safe(label)+'<small>'+(textLayer?"متن ":"رسانه ")+(i+1)+'</small></span>'
+        +'<button data-layer-up="'+safe(l.layer_id)+'" class="mini-action" aria-label="بالا">↑</button>'
+        +'<button data-layer-down="'+safe(l.layer_id)+'" class="mini-action" aria-label="پایین">↓</button>'
+        +'<button data-layer-remove="'+safe(l.layer_id)+'" class="mini-action danger" aria-label="حذف">×</button></div>';
+    }
+    $("scene-layer-list").innerHTML=[
+      ...layers.map((l,i)=>listItem(l,i,false)),
+      ...textLayers.map((l,i)=>listItem(l,i,true))
+    ].join("") || '<p class="empty-state">هنوز لایه‌ای اضافه نشده است.</p>';
     renderProperties();
-    $("scene-counter").textContent=layers.length+" / 8 لایه";
+    $("scene-counter").textContent=layers.length+" رسانه · "+textLayers.length+" متن";
   }
   function renderProperties(){
-    const layer=layers.find(l=>l.layer_id===selected);
-    $("scene-properties-empty").hidden=!!layer;
-    $("scene-properties").hidden=!layer;
-    if(!layer)return;
-    $("scene-current-label").textContent=fileName(layer.media_file);
-    for(const n of fieldNames) $("scene-"+n).value=layer[n];
-    $("scene-fit").value=layer.fit;
+    const item=getLayer(selected),textItem=isText(item);
+    $("scene-properties-empty").hidden=!!item;
+    $("scene-properties").hidden=!item;
+    if(!item)return;
+    $("scene-current-label").textContent=textItem?"متن: "+item.text.slice(0,28):fileName(item.media_file);
+    for(const n of fieldNames)$("scene-"+n).value=item[n];
+    $("scene-effect").value=item.effect||"none";
+    for(const n of ["start","duration","repeat"])$("scene-"+n).value=Number(item[n+"_sec"])||0;
+    $("scene-fit-container").hidden=textItem;
+    $("scene-text-properties").hidden=!textItem;
+    if(textItem){
+      $("scene-text-input").value=item.text;
+      $("scene-font-size").value=item.font_size;
+      $("scene-text-color").value=item.color;
+      $("scene-text-background").value=item.background;
+      $("scene-text-align").value=item.align;
+      $("scene-text-outline").value=item.outline;
+    }else $("scene-fit").value=item.fit;
   }
   async function open(nextChannel){
     if(dirty && nextChannel!==channel && !confirm("تغییرات ذخیره نشده‌اند؛ کانال عوض شود؟"))return;
@@ -65,11 +95,9 @@
       if(request!==loadSequence)return;
       channel=nextChannel;
       baseFile=scene.base_file;
-      layers=scene.layers.map(l=>({
-        layer_id:l.layer_id,media_file:l.media_file,x:l.x,y:l.y,w:l.w,
-        h:l.h,fit:l.fit,opacity:l.opacity
-      }));
-      selected=layers[0]?.layer_id||null;
+      layers=(scene.layers||[]).map(normalize);
+      textLayers=(scene.text_layers||[]).map(normalize);
+      selected=layers[0]?.layer_id||textLayers[0]?.layer_id||null;
       $("scene-channel").value=channel;
       fillChoices();preview();resetDirty();
     }catch(e){toast(e.message);}
