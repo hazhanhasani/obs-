@@ -4,6 +4,27 @@ All significant StreamCore changes are documented here.
 
 This project is still in alpha; stable release guarantees and migration automation are not yet available.
 
+## [0.7.0-alpha] — 2026-10-19
+
+### Added
+- Canonical 1280×720 bounding-box math for scene overlays.
+- OBS-inspired stretch mode in addition to Contain and Cover.
+- Optional Safe Area guides for mobile composition.
+- Stable SemVer GitHub Release detector and systemd six-hour checks.
+- Backups for `.env` and SQLite before any unattended Docker rebuild.
+- Health-gated deployment and best-effort container/code rollback.
+- Release publishing CI gate requiring shell, Python, Node and Docker tests.
+
+### Fixed
+- Installer preserves existing custom environment variables and encryption keys.
+- Live streams postpone automatic redeployments unless explicitly allowed.
+
+### Validation status
+- 19 source-level mobile editor regressions succeeded in isolated harness.
+- New geometry and update selection unit tests added; GitHub Actions outcome
+  and production VPS rollout have not yet been confirmed.
+- No stable Release has been tagged/published by this change.
+
 ## [0.6.2-alpha] — 2026-10-19
 
 ### Fixed
