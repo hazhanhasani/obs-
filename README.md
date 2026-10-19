@@ -6,7 +6,7 @@
 
 **Stream once. Run continuously. Manage from anywhere.**
 
-[![Version](https://img.shields.io/badge/version-0.6.2--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
+[![Version](https://img.shields.io/badge/version-0.7.0--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Self Hosted](https://img.shields.io/badge/deployment-self--hosted-172436?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Powered by](https://img.shields.io/badge/media-FFmpeg%20%2B%20MediaMTX-19bd93?style=flat-square)](https://github.com/hazhanhasani/obs-)
 
@@ -65,6 +65,35 @@ Unlike a traditional desktop-based streaming setup, **StreamCore runs its media 
 | External live input URL ingest | 🛠️ Planned |
 | Viewer analytics and advanced graphs | 🛠️ Planned |
 | Protected paid/private HLS | 🛠️ Planned |
+
+## 🛡️ OBS-inspired geometry and release auto-updater — v0.7.0-alpha
+
+StreamCore's compositing geometry now has a canonical Python implementation,
+converting source-item `X / Y / Width / Height` percentages to deterministic
+1280×720 output pixels and even H.264-compatible dimensions. The existing
+Contain and Cover modes now share the same bounds implementation as the new
+Stretch mode. Optional 5% × 8% Safe Area guides help position logos while
+remaining absent from the final broadcast.
+
+An unattended **GitHub Releases-only updater** now exists for Ubuntu/systemd.
+It checks for newer stable SemVer releases four times a day, creates encrypted-
+key and SQLite backups, builds Docker and verifies dashboard health. If startup
+fails it attempts to restore the previous code/containers. By default it
+**defers installation while any stream is active**. This protects always-on
+channels but means an always-on server needs an explicit opt-in to broadcast
+interruptions for truly unattended updating.
+
+The installer now preserves custom environment settings rather than
+overwriting them. Publishing a version-tagged GitHub Release requires passing
+the full CI regression suite and building the Docker dashboard image.
+
+**Alpha safety note:** the updater/timer has been implemented in the repository,
+but has not yet been activated or validated on the connected VPS. Rollback does
+not automatically restore database snapshots, and the health check does not
+prove external Telegram/Instagram stream reception.
+
+[Auto-updater operations](docs/AUTO_UPDATES.md) ·
+[Scene geometry and bounds](docs/SCENE_GEOMETRY.md)
 
 ## 📺 Real test-source parity and draft visibility — v0.6.2-alpha
 
