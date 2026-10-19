@@ -87,5 +87,52 @@ class PortraitCanvasTests(unittest.TestCase):
                 self.assertEqual(image.size,(432,192))
 
 
+
+class PortraitSceneAPITests(unittest.TestCase):
+    def test_authenticated_portrait_scene_persists_and_invalid_preset_rejected(self):
+        from fastapi.testclient import TestClient
+        from test_dashboard import streamcore
+        with TestClient(streamcore.app) as client:
+            auth=client.post("/api/login",json={
+                "username":"testadmin",
+                "password":"test-password-12-chars-or-longer"
+            })
+            self.assertEqual(auth.status_code,200,auth.text)
+            headers={"X-CSRF-Token":auth.json()["csrf"]}
+            result=client.put("/api/channels/main/scene",headers=headers,json={
+                "base_file":None,"layers":[],"text_layers":[],
+                "canvas_preset":"portrait"
+            })
+            self.assertEqual(result.status_code,200,result.text)
+            scene=client.get("/api/channels/main/scene").json()
+            self.assertEqual(scene["canvas_preset"],"portrait")
+            self.assertEqual((scene["canvas_width"],scene["canvas_height"]),(720,1280))
+            invalid=client.put("/api/channels/main/scene",headers=headers,json={
+                "base_file":None,"layers":[],"canvas_preset":"480p;bad"
+            })
+            self.assertEqual(invalid.status_code,422)
+            self.assertEqual(client.get("/api/channels/main/scene").json()["canvas_preset"],"portrait")
+
+    def test_portrait_test_pattern_has_correct_dimensions(self):
+        import shutil
+        if not shutil.which("ffmpeg"):
+            self.skipTest("FFmpeg executable is required")
+        from fastapi.testclient import TestClient
+        from test_dashboard import streamcore
+        with TestClient(streamcore.app) as client:
+            auth=client.post("/api/login",json={
+                "username":"testadmin",
+                "password":"test-password-12-chars-or-longer"
+            })
+            self.assertEqual(auth.status_code,200)
+            response=client.get("/api/scene/test-pattern?preset=portrait")
+            self.assertEqual(response.status_code,200,response.text[:160])
+            from io import BytesIO
+            with Image.open(BytesIO(response.content)) as image:
+                self.assertEqual(image.size,(720,1280))
+            bad=client.get("/api/scene/test-pattern?preset=../bad")
+            self.assertEqual(bad.status_code,422)
+
+
 if __name__ == "__main__":
     unittest.main()
