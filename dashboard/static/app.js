@@ -52,7 +52,7 @@ function render(){
   $("stat-media").textContent=fa(media.length);
   const url=location.origin+"/live/"+state.channel+"/index.m3u8";
   $("hls-url").textContent=url;
-  renderMedia(media);renderChannels(channels);renderDestinations(data.destinations || [], channels);renderChart(data.system.cpu,data.system.ram);
+  renderMedia(media);renderChannels(channels);renderDestinations(data.destinations || [], channels);renderEncoders(channels);renderChart(data.system.cpu,data.system.ram);
   window.StreamCoreScene?.sync(data);
   const playerKey=state.channel+":"+(active?"live":"off");
   if(state.page==="dashboard" && playerKey!==state.playerKey){updatePlayer(url,active);}
@@ -157,6 +157,41 @@ function renderDestinations(destinations, channels){
   }).join("") || '<p class="empty-state">خروجی‌ای ثبت نشده است؛ یک مقصد RTMP اضافه کنید.</p>';
 }
 
+// Encoder health is local FFmpeg progress, never remote stream acceptance.
+const encoderLabels={
+  stopped:"متوقف",starting:"در حال آغاز",healthy:"سالم",slow:"کندتر از پخش زنده",
+  stalled:"گزارش متوقف شده", "no-data":"بدون آمار FFmpeg"
+};
+function encoderCell(value,suffix=""){
+  if(value===null || value===undefined || !Number.isFinite(Number(value)))return "—";
+  return esc(Number(value).toLocaleString("fa-IR",{maximumFractionDigits:1})+suffix);
+}
+function renderEncoders(channels){
+  const chosen=channels.find(c=>c.id===state.channel)||channels[0];
+  const alerts=channels.filter(c=>c.running && ["slow","stalled","no-data"].includes(c.encoder?.state));
+  $("encoder-headline").textContent=alerts.length?fa(alerts.length)+" کانال نیازمند بررسی":"وضعیت پردازش روی VPS";
+  if(!chosen){
+    $("encoder-summary").textContent="هنوز کانالی ساخته نشده است.";
+  }else{
+    const e=chosen.encoder||{state:chosen.running?"starting":"stopped"};
+    const stage=encoderLabels[e.state]||"نامشخص";
+    const cls=["healthy","slow","stalled","starting","stopped","no-data"].includes(e.state)?e.state:"starting";
+    $("encoder-summary").innerHTML='<div class="encoder-summary-title"><span class="encoder-state '+cls+'">'+esc(stage)+'</span><b>'+esc(chosen.name)+'</b></div>'
+      +'<div class="encoder-kpis"><span><small>FPS</small><strong>'+encoderCell(e.fps)+'</strong></span>'
+      +'<span><small>سرعت</small><strong>'+encoderCell(e.speed,"x")+'</strong></span>'
+      +'<span><small>CPU فرآیند</small><strong>'+encoderCell(e.cpu_percent,"٪")+'</strong></span>'
+      +'<span><small>RAM فرآیند</small><strong>'+encoderCell(e.memory_mb," MB")+'</strong></span></div>';
+  }
+  $("encoder-detail").innerHTML=channels.map(c=>{
+    const e=c.encoder||{state:c.running?"starting":"stopped"};
+    const cls=["healthy","slow","stalled","starting","stopped","no-data"].includes(e.state)?e.state:"starting";
+    return '<tr><td><strong>'+esc(c.name)+'</strong></td>'
+      +'<td><span class="encoder-state '+cls+'">'+esc(encoderLabels[e.state]||"نامشخص")+'</span></td>'
+      +'<td>'+encoderCell(e.fps)+'</td><td>'+encoderCell(e.speed,"x")+'</td>'
+      +'<td>'+encoderCell(e.cpu_percent,"٪")+'</td><td>'+encoderCell(e.memory_mb," MB")+'</td>'
+      +'<td>'+encoderCell(e.age_seconds," ثانیه")+'</td></tr>';
+  }).join("")||'<tr><td colspan="7">کانالی وجود ندارد.</td></tr>';
+}
 function renderChannels(channels){
   $("channel-cards").innerHTML=channels.map(c=>'<article class="channel-card"><div class="status-row"><span class="dot '+(c.running?"green":"gray")+'"></span> '+(c.running?"پخش فعال":c.desired?"در حال اتصال":"متوقف")+'</div><h3>'+esc(c.name)+'</h3><div class="channel-id">/live/'+esc(c.id)+'/index.m3u8</div><div class="card-actions"><button class="primary" data-manage="'+esc(c.id)+'"><i class="bi bi-sliders"></i> مدیریت</button>'+ (c.id==="main"?"":'<button class="mini-action danger" data-remove-channel="'+esc(c.id)+'">حذف</button>') +'</div></article>').join("");
 }
