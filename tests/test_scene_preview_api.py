@@ -30,7 +30,7 @@ class DraftScenePreviewTests(unittest.TestCase):
             headers = self.login(client)
             endpoint = "/api/channels/main/scene/preview"
             before = client.get("/api/channels/main/scene").json()
-            jpeg = b"\\xff\\xd8\\xff\\xe0test\\xff\\xd9"
+            jpeg = bytes((0xFF, 0xD8, 0xFF, 0xE0)) + b'test' + bytes((0xFF, 0xD9))
             with patch.object(streamcore, "render_scene_snapshot", return_value=jpeg) as render:
                 with patch.object(streamcore.controller, "stop") as stop:
                     response = client.post(endpoint, json={
