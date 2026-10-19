@@ -6,7 +6,7 @@
 
 **Stream once. Run continuously. Manage from anywhere.**
 
-[![Version](https://img.shields.io/badge/version-0.4.0--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
+[![Version](https://img.shields.io/badge/version-0.4.1--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Self Hosted](https://img.shields.io/badge/deployment-self--hosted-172436?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Powered by](https://img.shields.io/badge/media-FFmpeg%20%2B%20MediaMTX-19bd93?style=flat-square)](https://github.com/hazhanhasani/obs-)
 
@@ -18,7 +18,7 @@
 
 ## ✨ Design preview
 
-> **Concept designs — not screenshots from a tested deployment.** Some controls, counters, and features shown here are illustrative and are not yet available in the v0.4.0 alpha. These images show the approved design direction.
+> **Concept designs — not screenshots from a tested deployment.** Some controls, counters, and features shown here are illustrative and are not yet available in the v0.4.1 alpha. These images show the approved design direction.
 
 <div align="center">
 
@@ -64,7 +64,29 @@ Unlike a traditional desktop-based streaming setup, **StreamCore runs its media 
 | Viewer analytics and advanced graphs | 🛠️ Planned |
 | Protected paid/private HLS | 🛠️ Planned |
 
-## 🎬 Visual Scene Studio — v0.4.0
+## 🛠️ Touch resize fix — v0.4.1
+
+A mobile-scene-editor regression could cause a layer to snap back to its original
+size when lifting a finger. The editor now captures touch gestures on a stable
+canvas container, preserves final pointer coordinates, and keeps resized/moved
+layers in the scene model until **Save and apply** is pressed. The resize handle
+has a larger touch target. Regression coverage is included in
+[`tests/test_scene_editor.cjs`](tests/test_scene_editor.cjs).
+
+For an existing VPS installation:
+
+```bash
+cd /opt/streamcore
+git pull --ff-only
+docker compose up -d --build
+```
+
+After updating, refresh the browser. Resize your overlay, lift your finger,
+verify it stays at the new size, then press **ذخیره و اعمال صحنه** to publish it
+to the live channel. Updating the dashboard container may briefly interrupt a
+currently active stream. Live mobile-device verification is still pending.
+
+## 🎬 Visual Scene Studio — v0.4.1
 
 One channel can broadcast **a background video plus up to 3 other video layers and 5 image layers simultaneously**. Use the drag-and-resize Persian scene editor to place each photo, logo or video precisely on a 16:9 canvas. Adjust **X/Y, width/height, opacity, stacking order and Contain/Cover fit**.
 
