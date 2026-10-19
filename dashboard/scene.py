@@ -110,7 +110,7 @@ def validate_scene(connect, base_file, layers):
     vcount=icount=0
     for l in layers:
         if l.x+l.w>100 or l.y+l.h>100:
-            raise ValueError("لایه از کادر ۱۶:۹ خارج می‌شود؛ موقعیت و اندازه را اصلاح کنید.")
+            raise ValueError("لایه از محدوده تصویر خروجی خارج می‌شود؛ موقعیت و اندازه را اصلاح کنید.")
         check_timing(getattr(l, "effect", "none"), getattr(l, "start_sec", 0),
                      getattr(l, "duration_sec", 0), getattr(l, "repeat_sec", 0))
         if l.fit not in SUPPORTED_FITS:
@@ -130,7 +130,7 @@ def validate_text_layers(items):
         raise ValueError("شناسه لایه متن تکراری است.")
     for item in items:
         if item.x + item.w > 100 or item.y + item.h > 100:
-            raise ValueError("محدوده متن از کادر ۱۶:۹ خارج می‌شود.")
+            raise ValueError("محدوده متن از کادر خروجی خارج می‌شود.")
         if not item.text.strip() or len(item.text) > 240 or len(item.text.splitlines()) > 5:
             raise ValueError("متن باید ۱ تا ۲۴۰ کاراکتر و حداکثر ۵ خط باشد.")
         if any(ord(ch) < 32 and ch != "\n" for ch in item.text):
