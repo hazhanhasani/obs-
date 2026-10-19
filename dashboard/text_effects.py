@@ -45,8 +45,8 @@ def render_text_layer(layer, destination):
     background = layer.get("background", "transparent")
     if not COLOR.fullmatch(color) or (background != "transparent" and not COLOR.fullmatch(background)):
         raise ValueError("رنگ متن یا پس‌زمینه معتبر نیست.")
-    width = max(2, round(CANVAS_W * layer["w"] / 100))
-    height = max(2, round(CANVAS_H * layer["h"] / 100))
+    bounds = layer_bounds(layer)
+    width, height = bounds.width, bounds.height
     image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
     if background != "transparent":
