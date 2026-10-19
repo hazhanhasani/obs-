@@ -19,3 +19,21 @@ if (parse_domain_arg --domain "https://example.com") >/dev/null 2>&1; then
   echo "Invalid URL incorrectly accepted"; exit 1
 fi
 echo "Installer domain and CLI tests: PASS"
+
+# Existing .env must preserve arbitrary extra settings and encryption secrets.
+test_dir="$(mktemp -d)"
+APP_DIR="$test_dir"
+ENV_FILE="$test_dir/.env"
+printf '%s\n' \
+  'STREAM_DOMAIN=old.example.org' 'ADMIN_USERNAME=testadmin' \
+  'ADMIN_PASSWORD=abcdefghijklmnopqrstuvwx' \
+  'SESSION_SECRET=1234567890123456789012345678901234567890' \
+  'SCENE_ENCODER_PRESET=superfast' 'AUTO_UPDATE_ALLOW_LIVE=true' > "$ENV_FILE"
+configure "new.example.org"
+grep -qx 'STREAM_DOMAIN=new.example.org' "$ENV_FILE"
+grep -qx 'SCENE_ENCODER_PRESET=superfast' "$ENV_FILE"
+grep -qx 'AUTO_UPDATE_ALLOW_LIVE=true' "$ENV_FILE"
+grep -qx 'SESSION_SECRET=1234567890123456789012345678901234567890' "$ENV_FILE"
+rm -- "$ENV_FILE"
+rmdir -- "$test_dir"
+echo "Existing configuration preservation: PASS"
