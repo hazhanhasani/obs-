@@ -120,3 +120,13 @@
   box-shadow:0 0 0 1px #0008;border-radius:2px;pointer-events:none}
 .scene-safe-area[hidden]{display:none}
 .scene-safe-toggle[aria-pressed="true"]{background:#344151;color:#fff;border-color:#8fa6b8}
+
+/* Orientation-specific studio layout: source pixels and output canvas agree. */
+.scene-canvas[data-orientation="portrait"]{width:min(100%,370px);margin-inline:auto}
+.scene-canvas[data-orientation="landscape"]{width:100%}
+.scene-render-image[style*="720/1280"],
+.scene-render-image[style*="1080/1920"]{max-width:370px;margin-inline:auto}
+@media(max-width:700px){
+  .scene-canvas[data-orientation="portrait"]{width:min(100%,330px)}
+  .scene-render-image{max-width:100%}
+}
