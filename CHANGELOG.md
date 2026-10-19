@@ -12,6 +12,13 @@ This project is still in alpha; stable release guarantees and migration automati
 - Encoder health states: stopped, starting, healthy, slow, no-data and stalled.
 - RTL status widgets on the main dashboard and system management screen.
 
+### Output parity
+- Added authenticated FFmpeg JPEG rendering for unsaved scene drafts using the same compositor filters as live streaming.
+- The draft snapshot is isolated from SQLite writes and existing publishers and never uploads to Telegram.
+- One snapshot at a time, a 25-second timeout and non-cacheable JPEG responses protect the VPS.
+- Added an exact 1280×720 pixel-position FFmpeg test and API persistence/authentication regression tests.
+- The editor now distinguishes approximate CSS layout from true FFmpeg output before saving.
+
 ### Security and reliability
 - Monitoring endpoint uses the existing authenticated `/api/overview`.
 - Progress output is whitelisted and retains no RTMP secrets.
