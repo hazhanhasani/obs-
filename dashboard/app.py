@@ -131,7 +131,7 @@ class Controller:
         target = "rtmp://mediamtx:1935/" + row["id"]
         base = ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "warning", "-y"]
         if row["mode"] == "scene":
-            return scene_command(connect, row["id"], row["file"], MEDIA, target)
+            return scene_command(connect, row["id"], row["file"], MEDIA, target, DATA / "scene_text")
         if row["mode"] == "test":
             return base + [
                 "-re", "-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=25",
@@ -503,11 +503,35 @@ class SceneLayerInput(BaseModel):
     h: int = Field(ge=5, le=100)
     fit: str = Field(default="contain", pattern=r"^(contain|cover)$")
     opacity: int = Field(default=100, ge=10, le=100)
+    effect: str = Field(default="none", pattern=r"^(none|fade|slide-left|slide-right|blink)$")
+    start_sec: float = Field(default=0, ge=0, le=3600)
+    duration_sec: float = Field(default=0, ge=0, le=3600)
+    repeat_sec: float = Field(default=0, ge=0, le=3600)
+
+
+class SceneTextInput(BaseModel):
+    layer_id: str = Field(pattern=r"^[a-z][a-z0-9_-]{2,35}$")
+    text: str = Field(min_length=1, max_length=240)
+    x: int = Field(ge=0, le=95)
+    y: int = Field(ge=0, le=95)
+    w: int = Field(ge=5, le=100)
+    h: int = Field(ge=5, le=100)
+    font_size: int = Field(default=46, ge=12, le=110)
+    color: str = Field(default="#ffffff", pattern=r"^#[0-9a-fA-F]{6}$")
+    background: str = Field(default="transparent", pattern=r"^(transparent|#[0-9a-fA-F]{6})$")
+    align: str = Field(default="right", pattern=r"^(left|center|right)$")
+    outline: int = Field(default=2, ge=0, le=5)
+    opacity: int = Field(default=100, ge=10, le=100)
+    effect: str = Field(default="none", pattern=r"^(none|fade|slide-left|slide-right|blink)$")
+    start_sec: float = Field(default=0, ge=0, le=3600)
+    duration_sec: float = Field(default=0, ge=0, le=3600)
+    repeat_sec: float = Field(default=0, ge=0, le=3600)
 
 
 class SceneInput(BaseModel):
     base_file: str | None = None
     layers: list[SceneLayerInput] = Field(default_factory=list, max_length=8)
+    text_layers: list[SceneTextInput] | None = Field(default=None, max_length=5)
 
 
 @app.get("/api/channels/{channel}/scene")
@@ -523,7 +547,7 @@ def get_scene(request: Request, channel: str):
 def update_scene(request: Request, channel: str, body: SceneInput):
     authorize(request, unsafe=True)
     try:
-        save_scene(connect, channel, body.base_file, body.layers)
+        save_scene(connect, channel, body.base_file, body.layers, body.text_layers)
     except LookupError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except ValueError as error:
