@@ -27,7 +27,7 @@ function harness({canvasWidth=1000,canvasHeight=562.5}={}) {
     dispatch(type, payload) {
       const event = {type, target:this, pointerId:1, pointerType:"touch", button:0,
         clientX:200, clientY:120, preventDefault() {}, ...payload};
-      this.listeners.get(type)?.(event);
+      return this.listeners.get(type)?.(event);
     }
     setPointerCapture(id) {this.captured=id;}
     hasPointerCapture(id) {return this.captured===id;}
@@ -62,7 +62,7 @@ function harness({canvasWidth=1000,canvasHeight=562.5}={}) {
     dispatch(type,payload){
       const event={type,pointerId:1,pointerType:"touch",button:0,
         clientX:200,clientY:120,preventDefault(){},...payload};
-      this.listeners.get(type)?.(event);
+      return this.listeners.get(type)?.(event);
     }
   };
   vm.runInNewContext(
