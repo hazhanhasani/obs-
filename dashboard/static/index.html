@@ -35,6 +35,7 @@
       <button class="nav-item active" data-page="dashboard"><i class="bi bi-grid-1x2"></i> داشبورد</button>
       <button class="nav-item" data-page="channels"><i class="bi bi-play-btn"></i> کانال‌ها</button>
       <button class="nav-item" data-page="media"><i class="bi bi-collection-play"></i> رسانه‌ها</button>
+      <button class="nav-item" data-page="destinations"><i class="bi bi-broadcast"></i> پخش چندمقصدی</button>
       <button class="nav-item" data-page="system"><i class="bi bi-sliders"></i> وضعیت سیستم</button>
     </nav>
     <div class="sidebar-footer">
@@ -110,6 +111,24 @@
 
       <section data-view="channels" hidden><div class="section-title"><div><p class="eyebrow">CHANNEL MANAGEMENT</p><h2>کانال‌های استریم</h2></div><button class="primary" data-create><i class="bi bi-plus-lg"></i> کانال جدید</button></div><div id="channel-cards" class="channel-cards"></div></section>
 
+      <section data-view="destinations" hidden>
+        <div class="section-title"><div><p class="eyebrow">MULTISTREAM / RTMP & RTMPS</p><h2>خروجی‌ها و شبکه‌های اجتماعی</h2></div><span class="caption-mini">ارسال مستقل از VPS • بدون OBS</span></div>
+        <div class="panel">
+          <div class="panel-heading"><div><h3><i class="bi bi-plus-circle"></i> اتصال مقصد جدید</h3><p class="hint">آدرس سرور و کلید را از پنل رسمی هر سرویس دریافت کنید؛ بعد از ذخیره کلید نمایش داده نمی‌شود.</p></div></div>
+          <form id="destination-form" class="destination-form" autocomplete="off">
+            <div><label class="field-label" for="dest-platform">پلتفرم</label><select class="field" id="dest-platform" required>
+            <option value="telegram">تلگرام</option><option value="instagram">اینستاگرام</option><option value="aparat">آپارات</option><option value="youtube">یوتیوب</option><option value="twitch">توییچ</option><option value="custom">سایر RTMP/RTMPS</option></select></div>
+            <div><label class="field-label" for="dest-channel">کانال مبدأ</label><select class="field" id="dest-channel" required></select></div>
+            <div><label class="field-label" for="dest-label">نام دلخواه</label><input class="field" id="dest-label" maxlength="60" minlength="2" placeholder="مثلاً تلگرام کانال اصلی" required></div>
+            <div><label class="field-label" for="dest-server">RTMP/RTMPS Server URL</label><input class="field" id="dest-server" dir="ltr" inputmode="url" placeholder="rtmps://example.com/live" required></div>
+            <div class="key-field"><label class="field-label" for="dest-key">Stream Key (محرمانه)</label><input class="field" id="dest-key" type="password" autocomplete="new-password" maxlength="512" required placeholder="کلید را اینجا وارد کنید"></div>
+            <div class="destination-submit"><button class="primary" id="dest-submit" type="submit"><i class="bi bi-shield-check"></i> ذخیره مقصد</button></div>
+          </form>
+          <p class="security-tip"><i class="bi bi-info-circle"></i> مقصد جدید به صورت غیرفعال ذخیره می‌شود. بعد از شروع استریم اصلی، مقصد را فعال کنید. «در حال ارسال» تأیید پخش عمومی در پلتفرم نیست.</p>
+        </div>
+        <div class="panel destination-panel"><div class="panel-heading"><h3>مقصدهای تعریف‌شده</h3><span id="dest-total" class="caption-mini">۰ مقصد</span></div><div id="destination-list" class="destination-list"><p class="empty-state">هیچ مقصدی ثبت نشده است.</p></div></div>
+        <p class="hint">اینستاگرام ممکن است به حساب واجد شرایط و کلید موقت Live Producer و تأیید نهایی Go Live نیاز داشته باشد.</p>
+      </section>
       <section data-view="media" hidden><div class="section-title"><div><p class="eyebrow">MEDIA MANAGER</p><h2>کتابخانه رسانه</h2></div></div><div class="panel upload-panel"><div class="upload-icon"><i class="bi bi-cloud-arrow-up"></i></div><h3>آپلود ویدئو روی سرور</h3><p>MP4 / MKV / MOV با کدک H.264؛ ویدئو روی VPS ذخیره خواهد شد.</p><form id="upload-form"><input type="file" id="media-file" accept=".mp4,.mkv,.mov" required><button type="submit" class="primary" id="upload-btn"><i class="bi bi-upload"></i> بارگذاری فایل</button></form><p class="hint" id="upload-result"></p></div><div class="panel"><div class="panel-heading"><h3>فایل‌های موجود</h3><span id="media-count"></span></div><div class="table-wrap"><table><thead><tr><th>نام فایل</th><th>زمان</th><th>حجم</th><th>عملیات</th></tr></thead><tbody id="media-library"></tbody></table></div></div></section>
 
       <section data-view="system" hidden><div class="section-title"><div><p class="eyebrow">SERVER OPERATIONS</p><h2>وضعیت سیستم</h2></div></div><div class="system-grid"><div class="panel"><h3>اطلاعات اجرا</h3><div class="info-row"><span>Media Engine</span><b>FFmpeg + MediaMTX</b></div><div class="info-row"><span>Streaming Delivery</span><b>HLS via Caddy</b></div><div class="info-row"><span>کنترل مدیریت</span><b>Session + CSRF</b></div><div class="info-row"><span>منابع و وضعیت کانال‌ها</span><b>SQLite / VPS</b></div></div><div class="panel"><h3>ملاحظات انتشار</h3><p class="system-text">لینک‌های پخش در این نسخه عمومی‌اند؛ برای محتوای خصوصی و پولی باید کنترل دسترسی HLS اضافه شود. برای HTTPS، دامنه را در فایل env تنظیم کنید.</p><p class="system-text">این داشبورد برای کنترل واقعی کانال‌هاست؛ زمان‌بندی و ارسال هم‌زمان به چند پلتفرم هنوز پیاده‌سازی نشده‌اند.</p></div></div></section>
