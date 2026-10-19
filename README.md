@@ -6,7 +6,7 @@
 
 **Stream once. Run continuously. Manage from anywhere.**
 
-[![Version](https://img.shields.io/badge/version-0.7.0--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
+[![Version](https://img.shields.io/badge/version-0.7.1--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Self Hosted](https://img.shields.io/badge/deployment-self--hosted-172436?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Powered by](https://img.shields.io/badge/media-FFmpeg%20%2B%20MediaMTX-19bd93?style=flat-square)](https://github.com/hazhanhasani/obs-)
 
@@ -65,6 +65,35 @@ Unlike a traditional desktop-based streaming setup, **StreamCore runs its media 
 | External live input URL ingest | 🛠️ Planned |
 | Viewer analytics and advanced graphs | 🛠️ Planned |
 | Protected paid/private HLS | 🛠️ Planned |
+
+## 📱 Portrait 9:16 scene output — v0.7.1-alpha
+
+**1080×1920 is exactly 9:16 (portrait)**. Previously all composited scenes
+were hard-coded to 1280×720 (16:9), so vertical source images/videos had black
+letterboxing in the actual FFmpeg output.
+
+A channel now supports three explicit output canvas presets:
+
+- **Landscape**: 1280×720 (16:9), preserved for existing channels by default.
+- **Portrait**: 720×1280 (9:16), recommended for shared 4-vCPU servers.
+- **Portrait Full HD**: 1080×1920 (9:16), CPU-intensive and opt-in.
+
+In Scene Studio, select **قالب خروجی کانال**. The drag/resize canvas,
+test-pattern, live FFmpeg filtergraph, text rasterization, and unpublished
+real-frame preview now follow the selected resolution. Each channel's selection
+is stored non-destructively in SQLite; older API callers retain the saved
+format. The Dashboard HLS monitor uses the actual video metadata to orient
+its frame.
+
+Save and apply the scene to restart that channel's compositor. Existing
+destinations remain unchanged, but some platforms may have format constraints.
+The dashboard does not automatically switch your channel to portrait based on
+an overlay logo; only the operator's choice changes the output.
+
+The implementation has **22 passing simulated JavaScript UI tests**. Nine
+Python tests cover orientation, full-HD opt-in and API validation, but their
+full GitHub Actions status and live 9:16 VPS/Telegram playback remain to be
+verified. Do not rebuild Docker during an important live broadcast.
 
 ## 🛡️ OBS-inspired geometry and release auto-updater — v0.7.0-alpha
 
