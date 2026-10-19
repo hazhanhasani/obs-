@@ -8,8 +8,10 @@
   <title>StreamCore | کنترل پخش زنده</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/scene-editor.css">
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.15/dist/hls.min.js" defer></script>
   <script src="/assets/app.js" defer></script>
+  <script src="/assets/scene-editor.js" defer></script>
 </head>
 <body>
 <section id="login-page" class="login-page" hidden>
@@ -37,12 +39,13 @@
       <button class="nav-item active" data-page="dashboard"><i class="bi bi-grid-1x2"></i> داشبورد</button>
       <button class="nav-item" data-page="channels"><i class="bi bi-play-btn"></i> کانال‌ها</button>
       <button class="nav-item" data-page="media"><i class="bi bi-collection-play"></i> رسانه‌ها</button>
+      <button class="nav-item" data-page="scene"><i class="bi bi-layers"></i> استودیو صحنه</button>
       <button class="nav-item" data-page="destinations"><i class="bi bi-broadcast"></i> پخش چندمقصدی</button>
       <button class="nav-item" data-page="system"><i class="bi bi-sliders"></i> وضعیت سیستم</button>
     </nav>
     <div class="sidebar-footer">
       <div class="small-online"><span class="dot green"></span> سرویس مستقل روی VPS</div>
-      <small>نسخه آزمایشی v0.3.1</small>
+      <small>نسخه آزمایشی v0.4.0</small>
     </div>
   </aside>
 
@@ -131,7 +134,52 @@
         <div class="panel destination-panel"><div class="panel-heading"><h3>مقصدهای تعریف‌شده</h3><span id="dest-total" class="caption-mini">۰ مقصد</span></div><div id="destination-list" class="destination-list"><p class="empty-state">هیچ مقصدی ثبت نشده است.</p></div></div>
         <p class="hint">اینستاگرام ممکن است به حساب واجد شرایط و کلید موقت Live Producer و تأیید نهایی Go Live نیاز داشته باشد.</p>
       </section>
-      <section data-view="media" hidden><div class="section-title"><div><p class="eyebrow">MEDIA MANAGER</p><h2>کتابخانه رسانه</h2></div></div><div class="panel upload-panel"><div class="upload-icon"><i class="bi bi-cloud-arrow-up"></i></div><h3>آپلود ویدئو روی سرور</h3><p>MP4 / MKV / MOV با کدک H.264؛ ویدئو روی VPS ذخیره خواهد شد.</p><form id="upload-form"><input type="file" id="media-file" accept=".mp4,.mkv,.mov" required><button type="submit" class="primary" id="upload-btn"><i class="bi bi-upload"></i> بارگذاری فایل</button></form><div class="upload-progress" id="upload-progress-wrap" hidden><div class="upload-progress-label"><span id="upload-phase">در حال ارسال فایل</span><strong id="upload-percent">۰٪</strong></div><progress id="upload-progress" value="0" max="100"></progress><button id="upload-cancel" type="button" class="mini-action danger">لغو آپلود</button></div><p class="hint" id="upload-result" aria-live="polite"></p></div><div class="panel"><div class="panel-heading"><h3>فایل‌های موجود</h3><span id="media-count"></span></div><div class="table-wrap"><table><thead><tr><th>نام فایل</th><th>زمان</th><th>حجم</th><th>عملیات</th></tr></thead><tbody id="media-library"></tbody></table></div></div></section>
+      <section data-view="scene" hidden>
+        <div class="section-title"><div><p class="eyebrow">VISUAL SCENE COMPOSER / 1280 × 720</p><h2>استودیو چیدمان صحنه</h2></div><span class="caption-mini">ویدئوهای هم‌زمان + عکس + لوگو</span></div>
+        <div class="panel">
+          <div class="scene-panel-row">
+            <div><label class="field-label" for="scene-channel">کانال پخش</label><select id="scene-channel" class="field"></select></div>
+            <div><label class="field-label" for="scene-base">ویدئوی پس‌زمینه (صدای اصلی)</label><select id="scene-base" class="field"></select></div>
+            <div><label class="field-label" for="scene-media">عکس یا ویدئوی جدید</label><select id="scene-media" class="field"></select></div>
+          </div>
+          <div class="scene-controls">
+            <button id="scene-add" class="secondary" type="button"><i class="bi bi-plus-circle"></i> افزودن لایه</button>
+            <button id="scene-open-media" class="outline" style="width:auto;margin:0" type="button"><i class="bi bi-cloud-upload"></i> آپلود رسانه</button>
+            <button id="scene-save" class="primary" type="button" disabled><i class="bi bi-save"></i> ذخیره و اعمال صحنه</button>
+          </div>
+          <p class="scene-notice" id="scene-note">محل و اندازه رسانه‌ها را مستقیماً روی پیش‌نمایش تنظیم کن.</p>
+        </div>
+        <div class="scene-grid" style="margin-top:18px">
+          <div class="panel">
+            <div class="panel-heading"><h3>پیش‌نمایش چیدمان ۱۶:۹</h3><span class="caption-mini">Drag / Resize</span></div>
+            <div class="scene-canvas" id="scene-canvas">
+              <div class="scene-test-bars" id="scene-colorbars"></div>
+              <img id="scene-base-image" alt="پیش‌نمایش پس‌زمینه" hidden>
+              <div class="scene-items" id="scene-items" aria-label="لایه‌های قابل جابه‌جایی"></div>
+            </div>
+            <p class="scene-tip">این پیش‌نمایش برای تنظیم محل و اندازه از تصاویر ثابت استفاده می‌کند. خروجی متحرک نهایی بعد از ذخیره در داشبورد نمایش داده می‌شود. برای تغییر اندازه گوشه نارنجی هر لایه را بکش.</p>
+          </div>
+          <div class="panel">
+            <div class="scene-layout-bar"><h3>لایه‌های صحنه</h3><span class="caption-mini" id="scene-counter">۰ / ۸ لایه</span></div>
+            <div class="scene-layer-list" id="scene-layer-list"></div>
+            <div class="scene-props" id="scene-properties" hidden>
+              <h4 id="scene-current-label">تنظیمات لایه</h4>
+              <div class="scene-property-grid">
+                <div><label class="field-label" for="scene-x">موقعیت افقی X (%)</label><input id="scene-x" class="field" type="number" min="0" max="95" step="1"></div>
+                <div><label class="field-label" for="scene-y">موقعیت عمودی Y (%)</label><input id="scene-y" class="field" type="number" min="0" max="95" step="1"></div>
+                <div><label class="field-label" for="scene-w">عرض (%)</label><input id="scene-w" class="field" type="number" min="5" max="100" step="1"></div>
+                <div><label class="field-label" for="scene-h">ارتفاع (%)</label><input id="scene-h" class="field" type="number" min="5" max="100" step="1"></div>
+                <div><label class="field-label" for="scene-opacity">شفافیت (%)</label><input id="scene-opacity" class="field" type="number" min="10" max="100" step="1"></div>
+                <div><label class="field-label" for="scene-fit">نحوه نمایش تصویر</label><select id="scene-fit" class="field"><option value="contain">نمایش کامل (Contain)</option><option value="cover">پرکردن کادر (Cover)</option></select></div>
+              </div>
+            </div>
+            <p id="scene-properties-empty" class="empty-state">برای ویرایش ابعاد و موقعیت، یک لایه را انتخاب کنید.</p>
+            <p class="scene-tip">لایه‌ها به ترتیب از پایین به بالا روی هم قرار می‌گیرند. در هر کانال حداکثر سه ویدئوی هم‌زمان و پنج تصویر مجاز است. پخش اصلی از VPS انجام می‌شود.</p>
+          </div>
+        </div>
+      </section>
+
+      <section data-view="media" hidden><div class="section-title"><div><p class="eyebrow">MEDIA MANAGER</p><h2>کتابخانه رسانه</h2></div></div><div class="panel upload-panel"><div class="upload-icon"><i class="bi bi-cloud-arrow-up"></i></div><h3>آپلود ویدئو روی سرور</h3><p>MP4 / MKV / MOV با کدک H.264 و تصویر PNG/JPG/WebP؛ رسانه روی VPS ذخیره خواهد شد.</p><form id="upload-form"><input type="file" id="media-file" accept=".mp4,.mkv,.mov,.png,.jpg,.jpeg,.webp" required><button type="submit" class="primary" id="upload-btn"><i class="bi bi-upload"></i> بارگذاری فایل</button></form><div class="upload-progress" id="upload-progress-wrap" hidden><div class="upload-progress-label"><span id="upload-phase">در حال ارسال فایل</span><strong id="upload-percent">۰٪</strong></div><progress id="upload-progress" value="0" max="100"></progress><button id="upload-cancel" type="button" class="mini-action danger">لغو آپلود</button></div><p class="hint" id="upload-result" aria-live="polite"></p></div><div class="panel"><div class="panel-heading"><h3>فایل‌های موجود</h3><span id="media-count"></span></div><div class="table-wrap"><table><thead><tr><th>نام فایل</th><th>زمان</th><th>حجم</th><th>عملیات</th></tr></thead><tbody id="media-library"></tbody></table></div></div></section>
 
       <section data-view="system" hidden><div class="section-title"><div><p class="eyebrow">SERVER OPERATIONS</p><h2>وضعیت سیستم</h2></div></div><div class="system-grid"><div class="panel"><h3>اطلاعات اجرا</h3><div class="info-row"><span>Media Engine</span><b>FFmpeg + MediaMTX</b></div><div class="info-row"><span>Streaming Delivery</span><b>HLS via Caddy</b></div><div class="info-row"><span>کنترل مدیریت</span><b>Session + CSRF</b></div><div class="info-row"><span>منابع و وضعیت کانال‌ها</span><b>SQLite / VPS</b></div></div><div class="panel"><h3>ملاحظات انتشار</h3><p class="system-text">لینک‌های پخش در این نسخه عمومی‌اند؛ برای محتوای خصوصی و پولی باید کنترل دسترسی HLS اضافه شود. برای HTTPS، دامنه را در فایل env تنظیم کنید.</p><p class="system-text">این داشبورد برای کنترل واقعی کانال‌هاست؛ زمان‌بندی خودکار هنوز پیاده‌سازی نشده است؛ مدیریت خروجی‌های چندمقصدی در نسخه آزمایشی فعال است.</p></div></div></section>
     </main>
