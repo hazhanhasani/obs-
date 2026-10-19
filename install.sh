@@ -88,7 +88,7 @@ prerequisites() {
   export DEBIAN_FRONTEND=noninteractive
   info "Installing prerequisites..."
   apt-get update -qq || die "Failed to update apt"
-  apt-get install -y -qq ca-certificates curl git openssl gnupg >/dev/null || die "Failed to install prerequisites"
+  apt-get install -y -qq ca-certificates curl git openssl gnupg python3 util-linux >/dev/null || die "Failed to install prerequisites"
 }
 
 dns_check() {
@@ -149,29 +149,42 @@ get_project() {
 }
 
 configure() {
-  local domain="$1" username password secret tmp
+  local domain="$1" username password secret tmp old_domain
   username="$(env_value ADMIN_USERNAME)"
   password="$(env_value ADMIN_PASSWORD)"
   secret="$(env_value SESSION_SECRET)"
   if [[ -f "$ENV_FILE" ]]; then
-    [[ $(printf '%s' "$password" | wc -c) -ge 12 && $(printf '%s' "$secret" | wc -c) -ge 32 ]] || die "Existing .env credentials invalid; refusing to overwrite encrypted streaming keys."
+    [[ $(printf '%s' "$password" | wc -c) -ge 12 && $(printf '%s' "$secret" | wc -c) -ge 32 ]] ||
+      die "Existing .env credentials invalid; refusing to overwrite encrypted destination keys."
     [[ -n "$username" ]] || username="admin"
-    info "Preserving administrator credentials and stream encryption key."
+    old_domain="$(env_value STREAM_DOMAIN)"
+    if [[ "$domain" != "$old_domain" ]]; then
+      tmp="$(mktemp "$APP_DIR/.env.XXXXXXXX")"
+      # Only the hostname changes. Preserve custom encoder and auto-update settings.
+      awk -v value="$domain" 'BEGIN{seen=0}
+        /^STREAM_DOMAIN=/ {print "STREAM_DOMAIN="value;seen=1;next}
+        {print}
+        END{if(!seen)print "STREAM_DOMAIN="value}' "$ENV_FILE" > "$tmp"
+      chmod 600 "$tmp"
+      mv -f "$tmp" "$ENV_FILE"
+    fi
+    info "Preserving existing credentials, stream encryption and custom .env settings."
   else
     username="admin_$(openssl rand -hex 3)"
     password="$(openssl rand -hex 20)"
     secret="$(openssl rand -hex 32)"
+    tmp="$(mktemp "$APP_DIR/.env.XXXXXXXX")"
+    {
+      printf 'STREAM_DOMAIN=%s\n' "$domain"
+      printf 'ADMIN_USERNAME=%s\n' "$username"
+      printf 'ADMIN_PASSWORD=%s\n' "$password"
+      printf 'SESSION_SECRET=%s\n' "$secret"
+      printf 'COOKIE_SECURE=true\nMAX_UPLOAD_MB=1024\n'
+      printf 'AUTO_UPDATE_ENABLED=true\nAUTO_UPDATE_ALLOW_LIVE=false\n'
+    } > "$tmp"
+    chmod 600 "$tmp"
+    mv -f "$tmp" "$ENV_FILE"
   fi
-  tmp="$(mktemp "$APP_DIR/.env.XXXXXXXX")"
-  {
-    printf 'STREAM_DOMAIN=%s\n' "$domain"
-    printf 'ADMIN_USERNAME=%s\n' "$username"
-    printf 'ADMIN_PASSWORD=%s\n' "$password"
-    printf 'SESSION_SECRET=%s\n' "$secret"
-    printf 'COOKIE_SECURE=true\nMAX_UPLOAD_MB=1024\n'
-  } > "$tmp"
-  chmod 600 "$tmp"
-  mv -f "$tmp" "$ENV_FILE"
   LOGIN_USERNAME="$username"
   LOGIN_PASSWORD="$password"
 }
@@ -223,6 +236,8 @@ main() {
   configure "$domain"
   start_stack
   check_https "$domain"
+  info "Enabling stable GitHub Release auto-updates..."
+  bash "$APP_DIR/scripts/install-updater.sh" || die "Could not install the release-update timer."
   printf '\n\033[1;32m========= STREAMCORE READY =========\033[0m\n'
   printf ' Panel    : https://%s\n' "$domain"
   printf ' Username : %s\n' "$LOGIN_USERNAME"
