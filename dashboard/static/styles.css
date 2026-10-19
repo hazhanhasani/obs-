@@ -63,3 +63,7 @@
 @media(max-width:700px){
   .preview[data-orientation="portrait"]{width:min(100%,350px)}
 }
+
+/* A dismissed mobile drawer must stop intercepting scene gestures immediately,
+   including while its closing transition is still visible. */
+@media(max-width:870px){.shell:not(.menu-open) .sidebar{pointer-events:none}}

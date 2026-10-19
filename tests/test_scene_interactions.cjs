@@ -22,7 +22,7 @@ before(async()=>{
 });
 after(async()=>{await browser?.close();server?.kill();});
 const layer=(extra={})=>({layer_id:'logo_test',media_file:'logo.png',x:20,y:25,w:40,h:40,fit:'stretch',opacity:100,effect:'none',...extra});
-async function setup(width=1080,preset='landscape',layers=[layer()],touch=false,texts=[],deviceScaleFactor=1){
+async function setup(width=1080,preset='landscape',layers=[layer()],touch=false,texts=[],deviceScaleFactor=1,sidebarTransitionMs=0){
   const context=await browser.newContext({viewport:{width,height:1000},isMobile:touch,hasTouch:touch,deviceScaleFactor,...(process.env.SCENE_VIDEO?{recordVideo:{dir:'test-results/video',size:{width,height:1000}}}:{})});
   const page=await context.newPage(),errors=[],cancels=[];
   page.on('pageerror',e=>errors.push(e.message));
@@ -43,6 +43,7 @@ async function setup(width=1080,preset='landscape',layers=[layer()],touch=false,
       await page.locator('[data-page="scene"]').tap();
     }else await page.locator('[data-page="scene"]').click();
   }
+  if(sidebarTransitionMs)await page.addInitScript(ms=>document.addEventListener('DOMContentLoaded',()=>{document.querySelector('.sidebar').style.transitionDuration=ms+'ms';}),sidebarTransitionMs);
   await page.goto(url);
   await openEditor();
   await page.locator('.scene-item.selected').waitFor();
@@ -83,8 +84,8 @@ async function drag(page,selector,dx,dy,touch=false){
   await page.locator('#scene-canvas').scrollIntoViewIfNeeded();
   const b=await page.locator(selector).boundingBox();assert.ok(b,selector);
   const x=b.x+b.width/2,y=b.y+b.height/2;
-  const hit=await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.dataset.resizeCorner,{x,y});
-  if(selector.includes('data-resize-corner'))assert.equal(hit,selector.match(/data-resize-corner="(\w+)"/)[1],'actual handle hit target');
+  const hit=await page.evaluate(({x,y})=>{const el=document.elementFromPoint(x,y);return {corner:el?.dataset.resizeCorner,element:el?.outerHTML.slice(0,350),x,y};},{x,y});
+  if(selector.includes('data-resize-corner'))assert.equal(hit.corner,selector.match(/data-resize-corner="(\w+)"/)[1],'actual handle hit target: '+JSON.stringify(hit));
   if(touch){
     const cdp=await page.context().newCDPSession(page);
     await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:1}]});
@@ -535,5 +536,14 @@ test('OBS mobile hand tool scrolls with native touch without transforming a sour
     const cancels=await h.page.evaluate(()=>window.gestureCancels);
     assert.ok(cancels.every(type=>type==='touch'));
     await h.page.evaluate(()=>window.gestureCancels=[]);await h.finish();
+  }catch(e){await h.context.close();throw e;}
+});
+
+test('closing mobile navigation cannot intercept a scene handle',async()=>{
+  const h=await setup(430,'portrait',[layer({x:10,y:10,w:80,h:80})],true,[],1,2000);
+  try{
+    const before=await h.geometry();
+    await drag(h.page,'[data-resize-corner="e"]',10,0,true);
+    assert.ok((await h.geometry()).w>before.w);await h.finish();
   }catch(e){await h.context.close();throw e;}
 });

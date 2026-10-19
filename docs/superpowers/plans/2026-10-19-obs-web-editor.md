@@ -60,3 +60,9 @@ one shared persisted stacking/visibility model for preview and FFmpeg.
   case and reran the entire suite cleanly. Its product cause was not reproduced.
 - Publication/Actions status is reported in the delivery message; deployment
   remains an explicit idle-window operation, not an effect of these tests.
+
+- CI attempt 2 exposed a real mobile drawer interception (119/120 browser cases
+  passed). A slowed closing transition reproduced the exact sidebar DOM target;
+  the dismissed drawer now stops pointer input immediately. The new test failed
+  before this fix and passed after it. Full 0.9.1 rerun: 121/121 browser cases,
+  no failure/cancellation; 57/57 JS cases. The new main commit is rechecked in CI.

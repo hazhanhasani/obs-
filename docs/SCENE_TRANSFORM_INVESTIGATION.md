@@ -167,3 +167,19 @@ Additional defects confirmed while implementing the new controls:
 All new tests use an isolated server; no live publisher is contacted. This is a
 backend update (metadata schema and composition), so the 0.8.1 frontend hot-copy
 procedure must not be used for 0.9.0. Deploy a complete image during idle time.
+
+
+## 0.9.1 — closing navigation intercepted an editor handle
+
+Actions attempt 2 passed 119/120 cases but failed the 430px portrait east handle
+because elementFromPoint did not return the grip. A controlled 2-second drawer
+transition reproduced it locally and identified `<aside class="sidebar">` at
+that exact point. The drawer had lost `menu-open`, but still occupied part of
+the viewport while its `right` transition completed and retained pointer events.
+
+The dismissed mobile drawer now immediately uses pointer-events:none. Opening
+it restores normal pointer behavior; its animation and desktop navigation stay
+intact. The new browser regression performs a real touch drag while the closing
+animation is still visible, so a timing delay cannot hide the regression.
+The earlier Actions attempt 1 failed separately on a cold Chrome process launch
+timeout; no handle-position assertion failed in that attempt.

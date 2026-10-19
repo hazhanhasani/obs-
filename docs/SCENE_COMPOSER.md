@@ -1,4 +1,4 @@
-# Visual Scene Composer — StreamCore v0.9.0-alpha
+# Visual Scene Composer — StreamCore v0.9.1-alpha
 
 Compose videos, images and text on a VPS from a desktop or mobile browser.
 The browser edits a draft; FFmpeg renders the published scene independently.

@@ -4,6 +4,16 @@ All significant StreamCore changes are documented here.
 
 This project is still in alpha; stable release guarantees and migration automation are not yet available.
 
+## [0.9.1-alpha] — 2026-10-19
+
+### Fixed
+- Make the dismissed mobile sidebar immediately ignore pointer input during
+  its closing transition. CI exposed the drawer intercepting the 430px portrait
+  east-handle gesture before its animation finished.
+- Add a deterministic slow-transition browser regression that identifies the
+  blocking DOM element, and include actual hit targets in failure diagnostics.
+- Invalidate base styles and scene assets with 0.9.1 versions.
+
 ## [0.9.0-alpha] — 2026-10-19
 
 ### Added

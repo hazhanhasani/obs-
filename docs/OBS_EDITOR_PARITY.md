@@ -81,3 +81,11 @@ syntax and diff checks passed. A prior local run timed out on the numeric
 aspect save case; after adding response/settlement diagnostics, the isolated
 case and the complete 120-case rerun passed. The timeout was not reproduced.
 CI independently rechecks the published tree, including the Docker image.
+
+
+0.9.1 follow-up: CI exposed an east-handle hit intercepted by the closing
+mobile navigation drawer. The controlled 2-second transition regression
+identified the sidebar element, failed before the pointer-event fix, then
+passed. The full 0.9.1 local browser suite passed 121/121 with zero failures or
+cancellations; all 57 JavaScript cases also passed. See the investigation for
+the precise cause and separate initial cold-Chrome startup timeout.
