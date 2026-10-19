@@ -4,6 +4,27 @@ All significant StreamCore changes are documented here.
 
 This project is still in alpha; stable release guarantees and migration automation are not yet available.
 
+## [0.7.1-alpha] — 2026-10-19
+
+### Fixed
+- Remove mandatory 1280×720 composition for portrait video/photo sources.
+- Persist a channel-specific output preset with a backward-compatible SQLite
+  table; existing channels remain landscape by default.
+- Use the same 9:16 dimensions for FFmpeg filters, text PNGs, test background
+  and authenticated draft snapshot.
+- Adapt the Scene Studio canvas and Dashboard HLS preview for portrait video.
+- Refresh versioned JavaScript/CSS URLs to avoid stale Android browser assets.
+
+### Added
+- 720×1280 portrait and 1080×1920 portrait-Full-HD output options.
+- Nine Python orientation tests and three new UI selection tests.
+
+### Operational notes
+- All 22 simulated JavaScript regressions passed; Python CI outcome and
+  live Telegram comparison remain pending.
+- Higher-resolution portrait streams require more CPU and bandwidth.
+- No GitHub stable release or VPS automatic deployment was triggered.
+
 ## [0.7.0-alpha] — 2026-10-19
 
 ### Added
