@@ -535,7 +535,7 @@ class SceneLayerInput(BaseModel):
     y: int = Field(ge=0, le=95)
     w: int = Field(ge=5, le=100)
     h: int = Field(ge=5, le=100)
-    fit: str = Field(default="contain", pattern=r"^(contain|cover)$")
+    fit: str = Field(default="contain", pattern=r"^(contain|cover|stretch)$")
     opacity: int = Field(default=100, ge=10, le=100)
     effect: str = Field(default="none", pattern=r"^(none|fade|slide-left|slide-right|blink)$")
     start_sec: float = Field(default=0, ge=0, le=3600)
