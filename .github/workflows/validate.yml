@@ -1,0 +1,17 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate shell script
+        run: sh -n publisher/start-stream.sh
+      - name: Validate Compose
+        run: |
+          cp .env.example .env
+          docker compose --profile demo --profile file config --quiet

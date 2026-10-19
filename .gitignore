@@ -1,0 +1,7 @@
+.env
+.env.*
+!.env.example
+media/*
+!media/.gitkeep
+.DS_Store
+*.log

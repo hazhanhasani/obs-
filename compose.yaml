@@ -1,0 +1,62 @@
+name: streamcore
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:1
+    restart: unless-stopped
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+    networks:
+      - internal
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      STREAM_DOMAIN: "${STREAM_DOMAIN:-:80}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - mediamtx
+    networks:
+      - internal
+
+  demo-publisher:
+    profiles: ["demo"]
+    build: ./publisher
+    restart: unless-stopped
+    environment:
+      STREAM_MODE: test
+      STREAM_PATH: main
+    depends_on:
+      - mediamtx
+    networks:
+      - internal
+
+  file-publisher:
+    profiles: ["file"]
+    build: ./publisher
+    restart: unless-stopped
+    environment:
+      STREAM_MODE: file
+      STREAM_PATH: main
+      INPUT_FILE: /media/loop.mp4
+    volumes:
+      - ./media:/media:ro
+    depends_on:
+      - mediamtx
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:
