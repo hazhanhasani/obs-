@@ -5,10 +5,15 @@ pixels drawn inside it. Coordinates are based on the active canvas dimensions se
 This code is original; no OBS GPL implementation is incorporated.
 """
 from dataclasses import dataclass
+import math
 
 CANVAS_WIDTH = 1280
 CANVAS_HEIGHT = 720
 FIT_MODES = ("contain", "cover", "stretch")
+# The transform can leave the published viewport, unlike its visible pixels.
+# Range also bounds CPU and memory requirements on a shared VPS.
+MIN_POSITION, MAX_POSITION = -200.0, 200.0
+MIN_SIZE, MAX_SIZE = 5.0, 200.0
 
 # Rendering presets are intentionally finite to cap CPU and memory requirements.
 # Older channels remain landscape unless explicitly changed by the operator.
@@ -44,21 +49,20 @@ def layer_bounds(layer: dict, canvas_width: int = CANVAS_WIDTH,
     """
     x, y = (float(layer[k]) for k in ("x", "y"))
     w, h = (float(layer[k]) for k in ("w", "h"))
-    if not all(0 <= n <= 100 for n in (x, y, w, h)):
-        raise ValueError("Invalid normalized scene position.")
-    if w <= 0 or h <= 0 or x+w > 100 or y+h > 100:
-        raise ValueError("Scene layer extends beyond the canvas.")
+    if not all(math.isfinite(n) for n in (x, y, w, h)):
+        raise ValueError("Scene bounds must be finite.")
+    if not (MIN_POSITION <= x <= MAX_POSITION and
+            MIN_POSITION <= y <= MAX_POSITION and
+            MIN_SIZE <= w <= MAX_SIZE and MIN_SIZE <= h <= MAX_SIZE):
+        raise ValueError("Scene transform exceeds safe bounds.")
     if canvas_width < 2 or canvas_height < 2:
         raise ValueError("Canvas too small for video output.")
+    # Position and dimensions must never shrink to fit the output frame.
+    # FFmpeg overlay performs the actual clipping during final composition.
     px_x = round(canvas_width * x / 100)
     px_y = round(canvas_height * y / 100)
-    # Keep a strictly even positive extent without extending beyond the canvas.
     width = max(2, int(canvas_width * w / 100) // 2 * 2)
     height = max(2, int(canvas_height * h / 100) // 2 * 2)
-    width = min(width, (canvas_width-px_x)//2*2)
-    height = min(height, (canvas_height-px_y)//2*2)
-    if width < 2 or height < 2:
-        raise ValueError("Scene layer is outside the video canvas.")
     return LayerBounds(px_x, px_y, width, height)
 
 
