@@ -24,6 +24,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from destinations import DestinationSupervisor, init_table
 from telemetry import ProgressTracker
 from scene import init_scene_db, scene_for, save_scene, remove_scene, is_scene_media_used, scene_command, preflight_scene, validate_scene, validate_text_layers, scene_snapshot_command
+from scene_geometry import canvas_size, CANVAS_PRESETS
 from PIL import Image, UnidentifiedImageError
 
 ROOT = Path(__file__).resolve().parent
@@ -564,6 +565,9 @@ class SceneTextInput(BaseModel):
 
 class SceneInput(BaseModel):
     base_file: str | None = None
+    canvas_preset: str | None = Field(
+        default=None, pattern=r"^(landscape|portrait|portrait_fullhd)$"
+    )
     layers: list[SceneLayerInput] = Field(default_factory=list, max_length=8)
     text_layers: list[SceneTextInput] | None = Field(default=None, max_length=5)
 
@@ -582,11 +586,13 @@ def update_scene(request: Request, channel: str, body: SceneInput):
     authorize(request, unsafe=True)
     try:
         # Check channel identity before resolving files or rendering expensive fonts.
-        scene_for(connect, channel)
+        saved = scene_for(connect, channel)
         # Validate external files, fonts, timing and FFmpeg filter generation
         # before saving the scene or stopping the currently running publisher.
-        preflight_scene(MEDIA, body.base_file, body.layers, body.text_layers)
-        save_scene(connect, channel, body.base_file, body.layers, body.text_layers)
+        preset = body.canvas_preset or saved["canvas_preset"]
+        preflight_scene(MEDIA, body.base_file, body.layers, body.text_layers, preset)
+        save_scene(connect, channel, body.base_file, body.layers, body.text_layers,
+                   body.canvas_preset)
     except LookupError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except ValueError as error:
@@ -626,7 +632,8 @@ def render_scene_snapshot(channel: str, body: SceneInput):
         command = scene_command(
             connect, channel, body.base_file, MEDIA, "unused-preview-output",
             Path(temp) / "rendered_text",
-            scene_override={"media": media_layers, "text_layers": text_layers}
+            scene_override={"media": media_layers, "text_layers": text_layers,
+                             "canvas_preset": body.canvas_preset or saved["canvas_preset"]}
         )
         snapshot = scene_snapshot_command(command)
         try:
@@ -658,7 +665,8 @@ async def preview_unpublished_scene(request: Request, channel: str, body: SceneI
         if texts is None:
             texts = [SceneTextInput(**item) for item in saved["text_layers"]]
         validate_text_layers(texts)
-        preflight_scene(MEDIA, body.base_file, body.layers, texts)
+        preflight_scene(MEDIA, body.base_file, body.layers, texts,
+                        body.canvas_preset or saved["canvas_preset"])
     except LookupError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except (ValueError, OSError) as error:
@@ -677,16 +685,20 @@ async def preview_unpublished_scene(request: Request, channel: str, body: SceneI
 _test_pattern_guard = threading.Lock()
 
 @app.get("/api/scene/test-pattern")
-def scene_test_pattern(request: Request):
+def scene_test_pattern(request: Request, preset: str = "landscape"):
     authorize(request)
-    poster = DATA / "scene-test-pattern.jpg"
+    try:
+        width, height = canvas_size(preset)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    poster = DATA / f"scene-test-pattern-{preset}.jpg"
     with _test_pattern_guard:
         if not poster.is_file() or poster.stat().st_size == 0:
             temporary = poster.with_suffix(".tmp.jpg")
             try:
                 subprocess.run([
                     "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                    "-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=25",
+                    "-f", "lavfi", "-i", f"testsrc2=size={width}x{height}:rate=25",
                     "-frames:v", "1", "-q:v", "3", str(temporary)
                 ], check=True, capture_output=True, timeout=15)
                 if not temporary.is_file() or temporary.stat().st_size == 0:
