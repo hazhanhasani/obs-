@@ -115,15 +115,27 @@
     if(old!==media.map(x=>x.file+":"+x.kind).join(",") || !channel){fillChoices();if(channel)preview();}
   }
   function inputChanged(){
-    const item=layers.find(l=>l.layer_id===selected);if(!item)return;
+    const item=getLayer(selected);if(!item)return;
     for(const n of fieldNames){
-      const input=$("scene-"+n),num=Number(input.value);
-      if(!Number.isFinite(num))continue;
-      item[n]=clamp(Math.round(num),n==="opacity"?10:n==="w"||n==="h"?5:0,n==="x"||n==="y"?95:100);
+      const input=$("scene-"+n),value=Number(input.value);
+      if(!Number.isFinite(value))continue;
+      item[n]=clamp(Math.round(value),n==="opacity"?10:n==="w"||n==="h"?5:0,n==="x"||n==="y"?95:100);
     }
     item.x=clamp(item.x,0,100-item.w);
     item.y=clamp(item.y,0,100-item.h);
-    item.fit=$("scene-fit").value;
+    item.effect=$("scene-effect").value;
+    for(const n of ["start","duration","repeat"]){
+      const num=Number($("scene-"+n).value);
+      item[n+"_sec"]=clamp(Number.isFinite(num)?num:0,0,3600);
+    }
+    if(isText(item)){
+      item.text=$("scene-text-input").value.slice(0,240);
+      item.font_size=clamp(Number($("scene-font-size").value)||46,12,110);
+      item.color=$("scene-text-color").value;
+      item.background=$("scene-text-background").value;
+      item.align=$("scene-text-align").value;
+      item.outline=clamp(Number($("scene-text-outline").value)||0,0,5);
+    }else item.fit=$("scene-fit").value;
     markDirty();preview();
   }
   // Do not reconstruct the layer DOM while a pointer is active: replacing the
@@ -140,10 +152,11 @@
   }
   function select(id){if(drag){activateLayer(id);return;}selected=id;preview();}
   function changeOrder(id,delta){
-    const i=layers.findIndex(l=>l.layer_id===id);
+    const collection=textLayers.some(l=>l.layer_id===id)?textLayers:layers;
+    const i=collection.findIndex(l=>l.layer_id===id);
     const j=i+delta;
-    if(i<0||j<0||j>=layers.length)return;
-    [layers[i],layers[j]]=[layers[j],layers[i]];
+    if(i<0||j<0||j>=collection.length)return;
+    [collection[i],collection[j]]=[collection[j],collection[i]];
     select(id);markDirty();
   }
   function addLayer(){
@@ -155,8 +168,27 @@
     const n=layers.length;
     const id="layer_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,7);
     layers.push({layer_id:id,media_file:file,x:clamp(10+(n%4)*8,0,60),
-      y:clamp(10+(n%3)*10,0,65),w:30,h:27,fit:"contain",opacity:100});
+      y:clamp(10+(n%3)*10,0,65),w:30,h:27,fit:"contain",opacity:100,
+      effect:"none",start_sec:0,duration_sec:0,repeat_sec:0});
     select(id);markDirty();
+  }
+  function addText(){
+    if(textLayers.length>=5){toast("حداکثر پنج لایه متن مجاز است.");return;}
+    const id="text_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,7);
+    textLayers.push({layer_id:id,text:"متن جدید",x:20,y:40,w:56,h:20,
+      font_size:46,color:"#ffffff",background:"transparent",align:"right",
+      outline:2,opacity:100,effect:"fade",start_sec:0,duration_sec:0,repeat_sec:0});
+    select(id);markDirty();
+  }
+  function previewEffect(){
+    const item=getLayer(selected);if(!item)return;
+    const element=$("scene-items").querySelector('[data-layer="'+item.layer_id+'"]');
+    if(!element)return;
+    for(const cls of ["fx-fade","fx-slide-left","fx-slide-right","fx-blink"])element.classList.remove(cls);
+    void element.offsetWidth;
+    const effect="fx-"+item.effect;
+    if(["fx-fade","fx-slide-left","fx-slide-right","fx-blink"].includes(effect))element.classList.add(effect);
+    else toast("این لایه افکت حرکتی ندارد.");
   }
   async function save(){
     if(!channel)return;
@@ -164,7 +196,7 @@
     button.disabled=true;button.textContent="در حال ذخیره و اعمال...";
     try{
       await api("/channels/"+encodeURIComponent(channel)+"/scene",{
-        method:"PUT",body:JSON.stringify({base_file:baseFile||null,layers})
+        method:"PUT",body:JSON.stringify({base_file:baseFile||null,layers,text_layers:textLayers})
       });
       resetDirty();
       toast("چیدمان ذخیره شد. اگر کانال روشن باشد پخش برای اعمال صحنه دوباره راه‌اندازی می‌شود.");
@@ -177,7 +209,7 @@
     if(drag || (e.pointerType==="mouse" && e.button!==0))return;
     const el=e.target.closest(".scene-item");
     if(!el)return;
-    const item=layers.find(l=>l.layer_id===el.dataset.layer);
+    const item=getLayer(el.dataset.layer);
     if(!item)return;
     const canvas=$("scene-canvas").getBoundingClientRect();
     if(canvas.width<=0 || canvas.height<=0)return;
@@ -197,7 +229,7 @@
   }
   function onPointerMove(e){
     if(!drag || e.pointerId!==drag.pointerId)return;
-    const l=layers.find(x=>x.layer_id===drag.id);
+    const l=getLayer(drag.id);
     if(!l)return;
     const dx=Math.round((e.clientX-drag.startX)*100/drag.width);
     const dy=Math.round((e.clientY-drag.startY)*100/drag.height);
@@ -239,6 +271,13 @@
     $("scene-channel").addEventListener("change",e=>open(e.target.value));
     $("scene-base").addEventListener("change",e=>{baseFile=e.target.value||null;markDirty();preview();});
     $("scene-add").addEventListener("click",addLayer);
+    $("scene-add-text").addEventListener("click",addText);
+    $("scene-effect-preview").addEventListener("click",previewEffect);
+    for(const id of ["scene-text-input","scene-font-size","scene-text-color",
+      "scene-text-background","scene-text-align","scene-text-outline"]){
+      $(id).addEventListener(id==="scene-text-input"?"input":"change",inputChanged);
+    }
+    for(const name of ["effect","start","duration","repeat"])$("scene-"+name).addEventListener("change",inputChanged);
     $("scene-save").addEventListener("click",save);
     $("scene-open-media").addEventListener("click",()=>page("media"));
     for(const n of fieldNames)$("scene-"+n).addEventListener("change",inputChanged);
@@ -246,7 +285,8 @@
     $("scene-layer-list").addEventListener("click",e=>{
       const rem=e.target.closest("[data-layer-remove]");
       if(rem){layers=layers.filter(l=>l.layer_id!==rem.dataset.layerRemove);
-        if(selected===rem.dataset.layerRemove)selected=layers[0]?.layer_id||null;
+        textLayers=textLayers.filter(l=>l.layer_id!==rem.dataset.layerRemove);
+        if(selected===rem.dataset.layerRemove)selected=layers[0]?.layer_id||textLayers[0]?.layer_id||null;
         preview();markDirty();return;}
       const up=e.target.closest("[data-layer-up]");
       if(up){changeOrder(up.dataset.layerUp,1);return;}
