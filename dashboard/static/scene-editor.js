@@ -440,6 +440,11 @@
       if(target && target!==channel)await open(target);
     });
     $("scene-base").addEventListener("change",e=>{baseFile=e.target.value||null;markDirty();preview();});
+    $("scene-toggle-safe").addEventListener("click",()=>{
+      const guides=$("scene-safe-area");
+      guides.hidden=!guides.hidden;
+      $("scene-toggle-safe").setAttribute("aria-pressed",String(!guides.hidden));
+    });
     $("scene-add").addEventListener("click",addLayer);
     $("scene-add-text").addEventListener("click",addText);
     $("scene-effect-preview").addEventListener("click",previewEffect);
