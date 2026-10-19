@@ -65,7 +65,8 @@ class SceneUnitTests(unittest.TestCase):
 
     def test_reject_duplicate_out_of_bounds_and_too_many_videos(self):
         bad=[SimpleNamespace(**vars(self.layers[0]))]
-        bad[0].x=70
+        # Off-frame x=70 is valid now. Reject only the hardened safety range.
+        bad[0].x=220
         with self.assertRaises(ValueError):
             save_scene(self.connect,"main","background.mp4",bad)
         with self.assertRaises(ValueError):
