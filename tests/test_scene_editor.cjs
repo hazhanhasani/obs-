@@ -45,6 +45,8 @@ function harness({canvasWidth=1000,canvasHeight=562.5}={}) {
     getBoundingClientRect(){return {width:canvasWidth,height:canvasHeight,left:0,top:0};}
     removeAttribute() {}
     focus() {}
+    setAttribute(name,value) {this.attributes ??= {};this.attributes[name]=String(value);}
+    getAttribute(name) {return this.attributes?.[name]??null;}
   }
   const document={
     getElementById(id) {
@@ -352,4 +354,17 @@ test("scene editor asks FFmpeg for the authentic test background",async()=>{
   source.onerror();
   assert.equal(source.hidden,true);
   assert.equal(h.document.getElementById("scene-colorbars").hidden,false);
+});
+
+test("safe area guides toggle without interfering with layer geometry",async()=>{
+  const h=harness();await h.open();
+  const guide=h.document.getElementById("scene-safe-area");
+  guide.hidden=true;
+  const button=h.document.getElementById("scene-toggle-safe");
+  button.dispatch("click",{});
+  assert.equal(guide.hidden,false);
+  assert.equal(button.getAttribute("aria-pressed"),"true");
+  button.dispatch("click",{});
+  assert.equal(guide.hidden,true);
+  assert.equal(button.getAttribute("aria-pressed"),"false");
 });
