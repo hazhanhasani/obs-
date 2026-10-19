@@ -35,7 +35,7 @@ def _font(rtl, mixed, size):
                 return ImageFont.truetype(str(path), size)
     raise ValueError("فونت سرور پیدا نشد. fonts-noto-core و fonts-dejavu-core را نصب کنید.")
 
-def render_text_layer(layer, destination):
+def render_text_layer(layer, destination, canvas_width=CANVAS_W, canvas_height=CANVAS_H):
     text = layer["text"].strip()
     if not text or len(text) > 240 or len(text.splitlines()) > 5 or any(
         ord(c) < 32 and c != "\n" for c in text
@@ -45,7 +45,7 @@ def render_text_layer(layer, destination):
     background = layer.get("background", "transparent")
     if not COLOR.fullmatch(color) or (background != "transparent" and not COLOR.fullmatch(background)):
         raise ValueError("رنگ متن یا پس‌زمینه معتبر نیست.")
-    bounds = layer_bounds(layer)
+    bounds = layer_bounds(layer, canvas_width, canvas_height)
     width, height = bounds.width, bounds.height
     image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
@@ -118,10 +118,10 @@ def _enable(layer):
         expr += f"*lt(mod(t-{start}\\,1)\\,0.65)"
     return expr
 
-def effect_filters(layer, input_index, prev, output_index):
+def effect_filters(layer, input_index, prev, output_index, canvas_width=CANVAS_W, canvas_height=CANVAS_H):
     check_timing(layer.get("effect", "none"), layer.get("start_sec", 0),
                  layer.get("duration_sec", 0), layer.get("repeat_sec", 0))
-    bounds = layer_bounds(layer)
+    bounds = layer_bounds(layer, canvas_width, canvas_height)
     width, height = bounds.width, bounds.height
     x, y = bounds.x, bounds.y
     sizing = ffmpeg_sizing(bounds, layer.get("fit", "contain"))
