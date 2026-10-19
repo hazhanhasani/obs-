@@ -18,7 +18,7 @@
 
 ## ✨ Design preview
 
-> **Concept designs — not screenshots from a tested deployment.** Some controls, counters, and features shown here are illustrative and are not yet available in the v0.5.3 alpha. These images show the approved design direction.
+> **Concept designs — not screenshots from a tested deployment.** Some controls, counters, and features shown here are illustrative and are not yet available in the v0.5.4 alpha. These images show the approved design direction.
 
 <div align="center">
 
@@ -83,6 +83,27 @@ stream. The implementation and unit/API/UI tests are in GitHub; actual VPS
 deployment and sustained-load testing are pending.
 
 See [Encoder Monitoring Guide](docs/MONITORING.md).
+
+## 🎞️ WYSIWYG output verification — v0.5.4-alpha
+
+The editing canvas is CSS-based, while **actual HLS and Telegram video** is
+composited on the VPS with FFmpeg. The two may differ in how transparent PNG
+margins, source aspect ratios or unpublished changes appear. The Studio now
+offers **«رندر خروجی قبل از ذخیره»**, a secure server-side JPEG preview
+from the **identical FFmpeg filtergraph used to publish the channel**.
+
+Previewing an unpublished scene does not change SQLite, restart a running
+publisher, or connect to Telegram. One preview at a time is permitted on a
+shared-vCPU VPS. The encoded image depicts the first output frame, not an
+animated or scheduled timeline. After saving, allow buffered HLS/RTMP frames
+to drain before comparing external video.
+
+[Output-parity guide](docs/SCENE_OUTPUT_PARITY.md) ·
+[Endpoint/API regression tests](tests/test_scene_preview.py) ·
+[720p FFmpeg geometry test](tests/test_scene_ffmpeg_smoke.py)
+
+**Status:** committed on GitHub, not yet verified/deployed on the connected
+VPS. This remains an alpha feature until end-to-end live testing succeeds.
 
 ## 🎯 Mobile touch-target visual fix — v0.5.3-alpha
 
@@ -299,7 +320,7 @@ For full configuration and safety notes, see the [deployment guide](docs/DEPLOYM
 
 ## 📜 License and status
 
-**Development status:** v0.5.3 alpha — not yet validated for production deployment. No open-source license has been granted for this repository. All rights reserved unless a license is added.
+**Development status:** v0.5.4 alpha — not yet validated for production deployment. No open-source license has been granted for this repository. All rights reserved unless a license is added.
 
 <div align="center">
 
