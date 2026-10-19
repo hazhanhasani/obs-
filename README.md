@@ -6,7 +6,7 @@
 
 **Stream once. Run continuously. Manage from anywhere.**
 
-[![Version](https://img.shields.io/badge/version-0.7.2--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
+[![Version](https://img.shields.io/badge/version-0.7.3--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Self Hosted](https://img.shields.io/badge/deployment-self--hosted-172436?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Powered by](https://img.shields.io/badge/media-FFmpeg%20%2B%20MediaMTX-19bd93?style=flat-square)](https://github.com/hazhanhasani/obs-)
 
@@ -65,6 +65,28 @@ Unlike a traditional desktop-based streaming setup, **StreamCore runs its media 
 | External live input URL ingest | 🛠️ Planned |
 | Viewer analytics and advanced graphs | 🛠️ Planned |
 | Protected paid/private HLS | 🛠️ Planned |
+
+## 📱 Four-corner mobile touch hotfix — v0.7.3-alpha
+
+The four resize handles existed in HTML, but an earlier selector
+`.scene-item .scene-handle` (including its mobile media query) had higher
+CSS specificity than the new per-corner rules. Thus all four touch areas
+were positioned at the lower-right of the layer and overlapped.
+This was an **actual computed-style bug**, not a FFmpeg transform issue.
+
+The resize handles now use more specific `[data-resize-corner]` selectors,
+explicitly positioning NW, NE, SW and SE independently at both desktop and
+mobile viewport widths. They retain transparent, touch-friendly hit areas.
+
+Two source-level interaction regressions also protect opposite-edge
+anchoring at maximum width/height and forbid size presets from moving an
+intentionally off-canvas layer. A new **headless-Chrome layout regression**
+checks real computed positions and pointer hit targets of each corner at
+mobile and desktop viewport sizes. It is run as a CI gate.
+
+**Rollout:** source fix only; update the VPS outside active live broadcasts.
+The authenticated CSS file uses `?v=0.7.3` to invalidate mobile caches.
+After upgrading, verify the actual touch behavior on Android.
 
 ## 🎛️ Off-canvas scene composition and four-corner resize — v0.7.2-alpha
 
