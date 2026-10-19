@@ -12,6 +12,29 @@
   let draftVersion=0, actualPreviewUrl=null, previewRendering=false;
   let media=[],loadSequence=0;
   const fieldNames=["x","y","w","h","opacity"];
+  const MIN_POSITION=-200,MAX_POSITION=200,MIN_SIZE=5,MAX_SIZE=200;
+  const tenth=(v)=>Math.round(v*10)/10;
+  const cornerHandles=()=>["nw","ne","sw","se"].map(corner=>
+    '<span class="scene-handle scene-handle-'+corner+'" data-resize-corner="'+corner+
+    '" title="Resize '+corner+'" aria-hidden="true"></span>').join("");
+  function applyTransform(item,geometry){
+    for(const key of ["x","y","w","h"])item[key]=tenth(geometry[key]);
+  }
+  // Keep the opposite edges anchored when dragging each corner (OBS-style).
+  // Do not clamp to viewport. Server and FFmpeg clip only the *output*.
+  function transformFromGesture(initial,corner,dx,dy){
+    if(!corner)return {x:clamp(tenth(initial.x+dx),MIN_POSITION,MAX_POSITION),
+      y:clamp(tenth(initial.y+dy),MIN_POSITION,MAX_POSITION),
+      w:initial.w,h:initial.h};
+    const movingLeft=corner.includes("w"),movingTop=corner.includes("n");
+    const left=initial.x,right=initial.x+initial.w;
+    const top=initial.y,bottom=initial.y+initial.h;
+    const x=movingLeft?clamp(tenth(left+dx),MIN_POSITION,Math.min(MAX_POSITION,right-MIN_SIZE)):left;
+    const y=movingTop?clamp(tenth(top+dy),MIN_POSITION,Math.min(MAX_POSITION,bottom-MIN_SIZE)):top;
+    const w=movingLeft?tenth(right-x):clamp(tenth(initial.w+dx),MIN_SIZE,MAX_SIZE);
+    const h=movingTop?tenth(bottom-y):clamp(tenth(initial.h+dy),MIN_SIZE,MAX_SIZE);
+    return {x,y,w:clamp(w,MIN_SIZE,MAX_SIZE),h:clamp(h,MIN_SIZE,MAX_SIZE)};
+  }
   const outputDimensions={landscape:[1280,720],portrait:[720,1280],portrait_fullhd:[1080,1920]};
   const outputSize=()=>outputDimensions[canvasPreset]||outputDimensions.landscape;
   function applyCanvas(){
@@ -88,7 +111,7 @@
       return '<div class="scene-item '+(selected===l.layer_id?"selected":"")+'" data-layer="'+safe(l.layer_id)+'" style="'+css+'" tabindex="0" role="button" aria-label="انتخاب لایه '+(i+1)+'">'
         +'<img draggable="false" src="'+poster(l.media_file)+'" style="object-fit:'+(l.fit==="stretch"?"fill":safe(l.fit))+'" alt="">'
         +(m?.kind==="video"?'<span class="scene-video-chip"><i class="bi bi-play-fill"></i> ویدئو</span>':'')
-        +'<span class="scene-item-name">'+(i+1)+'</span><span class="scene-handle" title="تغییر اندازه"></span></div>';
+        +'<span class="scene-item-name">'+(i+1)+'</span>'+cornerHandles()+'</div>';
     });
     const textHtml=textLayers.map((l,i)=>{
       const css='left:'+l.x+'%;top:'+l.y+'%;width:'+l.w+'%;height:'+l.h+'%;opacity:'+(l.opacity/100)+';';
@@ -96,7 +119,7 @@
       const size=(l.font_size/outputSize()[0]*100).toFixed(3)+"cqw";
       return '<div class="scene-item scene-text-item '+(selected===l.layer_id?"selected":"")+'" data-layer="'+safe(l.layer_id)+'" style="'+css+'" tabindex="0" role="button" aria-label="متن '+(i+1)+'">'
         +'<span class="scene-text-content" dir="auto" style="font-size:'+size+';color:'+safe(l.color)+';text-align:'+safe(l.align)+';background:'+bg+';">'+safe(l.text)+'</span>'
-        +'<span class="scene-item-name">T'+(i+1)+'</span><span class="scene-handle" title="تغییر اندازه"></span></div>';
+        +'<span class="scene-item-name">T'+(i+1)+'</span>'+cornerHandles()+'</div>';
     });
     $("scene-items").innerHTML=[...mediaHtml,...textHtml].join("");
     function listItem(l,i,textLayer){
@@ -214,10 +237,12 @@
     for(const n of fieldNames){
       const input=$("scene-"+n),value=Number(input.value);
       if(!Number.isFinite(value))continue;
-      item[n]=clamp(Math.round(value),n==="opacity"?10:n==="w"||n==="h"?5:0,n==="x"||n==="y"?95:100);
+      item[n]=n==="opacity"?clamp(Math.round(value),10,100):
+        n==="w"||n==="h"?clamp(tenth(value),MIN_SIZE,MAX_SIZE):
+        clamp(tenth(value),MIN_POSITION,MAX_POSITION);
     }
-    item.x=clamp(item.x,0,100-item.w);
-    item.y=clamp(item.y,0,100-item.h);
+    // Off-canvas staging is deliberate: x/y may be negative or >100.
+
     item.effect=$("scene-effect").value;
     for(const n of ["start","duration","repeat"]){
       const num=Number($("scene-"+n).value);
@@ -373,13 +398,16 @@
     if(!item)return;
     const canvas=getCanvasSize();
     if(canvas.width<=0 || canvas.height<=0)return;
-    const resize=!!e.target?.closest?.(".scene-handle");
+    const handle=e.target?.closest?.("[data-resize-corner]");
+    const corner=handle?.dataset?.resizeCorner||
+      (e.target?.closest?.(".scene-handle")?"se":null);
+    const resize=!!corner;
     drag={
       pointerId:e.pointerId,id:item.layer_id,
       startX:e.clientX,startY:e.clientY,
       x:item.x,y:item.y,w:item.w,h:item.h,
       width:canvas.width,height:canvas.height,
-      type:resize?"resize":"move",changed:false
+      type:resize?"resize":"move",corner,changed:false
     };
     activateLayer(item.layer_id);
     $("scene-canvas").classList.add("scene-gesturing");
@@ -396,16 +424,10 @@
     const current=getCanvasSize();
     const width=current.width>0?current.width:drag.width;
     const height=current.height>0?current.height:drag.height;
-    const dx=Math.round((e.clientX-drag.startX)*100/width);
-    const dy=Math.round((e.clientY-drag.startY)*100/height);
+    const dx=(e.clientX-drag.startX)*100/width;
+    const dy=(e.clientY-drag.startY)*100/height;
     const old=[l.x,l.y,l.w,l.h];
-    if(drag.type==="resize"){
-      l.w=clamp(drag.w+dx,5,100-drag.x);
-      l.h=clamp(drag.h+dy,5,100-drag.y);
-    }else{
-      l.x=clamp(drag.x+dx,0,100-drag.w);
-      l.y=clamp(drag.y+dy,0,100-drag.h);
-    }
+    applyTransform(l,transformFromGesture(drag,drag.corner,dx,dy));
     const node=$("scene-items").querySelector('[data-layer="'+l.layer_id+'"]');
     if(node)Object.assign(node.style,{
       left:l.x+"%",top:l.y+"%",width:l.w+"%",height:l.h+"%"
@@ -438,6 +460,12 @@
     // If a WebView never sends pointerup, the following real pointerdown
     // can safely finalize the old draft before starting another gesture.
   }
+  function centerSelected(){
+    if(drag)return;
+    const l=getLayer(selected);if(!l)return;
+    l.x=tenth((100-l.w)/2);l.y=tenth((100-l.h)/2);
+    markDirty();preview();recordGeometry();
+  }
   function resizeSelected(width,height){
     if(drag)return;
     const layer=getLayer(selected);if(!layer)return;
@@ -462,6 +490,7 @@
       if(!Object.prototype.hasOwnProperty.call(outputDimensions,e.target.value))return;
       canvasPreset=e.target.value;applyCanvas();markDirty();preview();
     });
+    $("scene-center-selected").addEventListener("click",centerSelected);
     $("scene-toggle-safe").addEventListener("click",()=>{
       const guides=$("scene-safe-area");
       guides.hidden=!guides.hidden;
