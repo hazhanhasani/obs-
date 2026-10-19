@@ -21,7 +21,7 @@ async function bootstrap(){
   try{const s=await api("/session");if(!s.authenticated){showLogin();return;}state.csrf=s.csrf;$("app").hidden=false;$("login-page").hidden=true;await refresh();if(state.timer)clearInterval(state.timer);state.timer=setInterval(()=>refresh().catch(e=>console.error(e)),5000);}catch(e){showLogin();}
 }
 async function login(event){event.preventDefault();$("login-error").textContent="";$("login-submit").disabled=true;
-  try{const result=await api("/login",{method:"POST",body:JSON.stringify({password:$("password").value})});state.csrf=result.csrf;$("password").value="";await bootstrap();}
+  try{const result=await api("/login",{method:"POST",body:JSON.stringify({username:$("username").value.trim(),password:$("password").value})});state.csrf=result.csrf;$("password").value="";await bootstrap();}
   catch(e){$("login-error").textContent=e.message;}finally{$("login-submit").disabled=false;}
 }
 function currentChannel(){return state.overview?.channels.find(c=>c.id===state.channel) || state.overview?.channels[0];}

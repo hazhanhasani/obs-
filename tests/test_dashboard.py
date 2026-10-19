@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 TEST_ROOT = tempfile.TemporaryDirectory(prefix="streamcore-test-")
+os.environ["ADMIN_USERNAME"] = "testadmin"
 os.environ["ADMIN_PASSWORD"] = "test-password-12-chars-or-longer"
 os.environ["SESSION_SECRET"] = "a" * 64
 os.environ["COOKIE_SECURE"] = "false"
@@ -21,10 +22,11 @@ class DashboardIntegrationTest(unittest.TestCase):
         with TestClient(streamcore.app) as client:
             self.assertEqual(client.get("/health").json(), {"ok": True})
             self.assertEqual(client.get("/api/overview").status_code, 401)
-            self.assertEqual(client.post("/api/login", json={"password": "invalid"}).status_code, 401)
+            self.assertEqual(client.post("/api/login", json={"username": "testadmin", "password": "invalid"}).status_code, 401)
+            self.assertEqual(client.post("/api/login", json={"username": "wrongadmin", "password": os.environ["ADMIN_PASSWORD"]}).status_code, 401)
 
             response = client.post(
-                "/api/login", json={"password": os.environ["ADMIN_PASSWORD"]}
+                "/api/login", json={"username": "testadmin", "password": os.environ["ADMIN_PASSWORD"]}
             )
             self.assertEqual(response.status_code, 200)
             token = response.json()["csrf"]

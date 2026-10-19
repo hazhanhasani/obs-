@@ -18,6 +18,8 @@
     <h1>کنترل کامل استریم، از هرجا</h1>
     <p>برای مدیریت امن کانال‌های سرور، وارد شوید.</p>
     <form id="login-form" autocomplete="on">
+      <label for="username">نام کاربری مدیر</label>
+      <div class="login-input"><i class="bi bi-person-lock"></i><input id="username" type="text" name="username" autocomplete="username" maxlength="32" minlength="3" required placeholder="نام کاربری مدیر" dir="ltr"></div>
       <label for="password">رمز ورود مدیریت</label>
       <div class="login-input"><i class="bi bi-shield-lock"></i><input id="password" type="password" name="password" autocomplete="current-password" minlength="12" required placeholder="رمز عبور پنل"></div>
       <button class="primary wide" id="login-submit" type="submit">ورود به داشبورد <i class="bi bi-arrow-left"></i></button>

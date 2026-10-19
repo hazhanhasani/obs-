@@ -25,6 +25,7 @@ from destinations import DestinationSupervisor, init_table
 ROOT = Path(__file__).resolve().parent
 MEDIA = Path(os.getenv("MEDIA_DIR", "/media")).resolve()
 DATA = Path(os.getenv("DATA_DIR", "/data")).resolve()
+USERNAME = os.getenv("ADMIN_USERNAME", "admin")
 PASSWORD = os.getenv("ADMIN_PASSWORD", "")
 SECRET = os.getenv("SESSION_SECRET", "")
 MAX_MB = max(1, int(os.getenv("MAX_UPLOAD_MB", "1024")))
@@ -32,6 +33,8 @@ COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
 SLUG = re.compile(r"^[a-z][a-z0-9_-]{2,39}$")
 VALID_EXT = {".mp4", ".mkv", ".mov"}
 
+if not re.fullmatch(r"[a-zA-Z][a-zA-Z0-9_-]{2,31}", USERNAME):
+    raise RuntimeError("ADMIN_USERNAME must be 3-32 ASCII letters, numbers, underscores or hyphens")
 if len(PASSWORD) < 12 or PASSWORD in {"change-this-password", "replace-me", "CHANGE_ME"}:
     raise RuntimeError("Set a unique ADMIN_PASSWORD of at least 12 characters in .env")
 if len(SECRET) < 32 or SECRET.startswith("replace") or SECRET.startswith("CHANGE"):
@@ -69,6 +72,7 @@ class ChannelConfig(BaseModel):
     file: str | None = None
 
 class Credentials(BaseModel):
+    username: str = Field(min_length=3, max_length=32)
     password: str
 
 def validate_media(path: Path):
@@ -252,7 +256,7 @@ def login(request: Request, credentials: Credentials):
         failed_logins[addr] = attempts
         if len(attempts) >= 8:
             raise HTTPException(status_code=429, detail="تلاش‌های زیاد؛ ۱۰ دقیقه بعد دوباره امتحان کنید.")
-    if not hmac.compare_digest(credentials.password, PASSWORD):
+    if not (hmac.compare_digest(credentials.username, USERNAME) and hmac.compare_digest(credentials.password, PASSWORD)):
         with login_lock:
             failed_logins.setdefault(addr, []).append(now)
         raise HTTPException(status_code=401, detail="رمز عبور اشتباه است.")

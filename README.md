@@ -96,7 +96,21 @@ Stream Keys are encrypted in SQLite and never returned in the API. **Process-bas
 
 The RTMP publisher and HLS origin ports are kept inside Docker's private bridge. No Docker Socket is exposed to the application.
 
-## 🚀 Quick start
+## 🚀 One-command automatic installation
+
+Run on a clean Ubuntu 22.04+ VPS over SSH. The installer asks for your **domain**, checks its DNS A record, installs Docker/Compose if needed, deploys all StreamCore containers, waits for Caddy's trusted HTTPS certificate, and finally prints the unique **panel URL, username and password**.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hazhanhasani/obs-/main/install.sh | sudo bash
+```
+
+**Before running:** point your domain's DNS A record at your VPS's public IPv4, disable proxying (e.g. set Cloudflare to DNS-only during certificate issuance), and allow public TCP 80/443. Invalid IPv6 AAAA records should be fixed or removed. **Run this only after reviewing [install.sh](install.sh)**, since a remote shell installer executes as root.
+
+The installation lives at `/opt/streamcore`. Credentials are securely generated using OpenSSL and saved in a root-readable `.env` with mode `600`. Re-running the installer preserves existing login and encryption secrets and updates the checkout; it does not discard existing stream keys or uploaded video data. The installer prints the login details only after HTTPS is validated.
+
+> Production status: this one-command installation is newly implemented and has not yet been verified on a live VPS. The deployment remains an alpha and should not be treated as production-hardened.
+
+## 🚀 Quick start (manual installation)
 
 **Requirements:** Ubuntu 22.04+ VPS, Docker Engine + Compose v2, recommended 2 vCPU / 2 GB RAM for entry-level use, a domain pointed at the server, inbound TCP 80 and 443.
 
@@ -107,6 +121,7 @@ cp .env.example .env
 
 # Generate and enter independent, strong secrets in .env
 openssl rand -hex 24 # ADMIN_PASSWORD
+# ADMIN_USERNAME defaults to admin in manual installations
 openssl rand -hex 32 # SESSION_SECRET
 nano .env           # STREAM_DOMAIN=stream.example.com
 
@@ -124,7 +139,7 @@ For full configuration and safety notes, see the [deployment guide](docs/DEPLOYM
 
 ## 🔐 Security and limitations
 
-- The admin panel uses signed session cookies and CSRF checks, but this **alpha has not undergone a security audit**.
+- The admin panel uses a username, signed session cookies and CSRF checks, but this **alpha has not undergone a security audit**.
 - Keep `SESSION_SECRET` stable to decrypt destination keys after updates. FFmpeg's runtime process arguments are visible to privileged users on the VPS.
 - Stream playback is **public** in this version; do not upload private or paid content without access controls.
 - Uploaded files must contain H.264 video. Video encoding/transcoding during broadcast is not automatic for file sources.
