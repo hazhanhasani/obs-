@@ -79,7 +79,9 @@
     $("scene-fit-container").hidden=textItem;
     $("scene-text-properties").hidden=!textItem;
     if(textItem){
-      $("scene-text-input").value=item.text;
+      const textarea=$("scene-text-input");
+      // Do not reset the caret while typing Persian/English in the middle.
+      if(document.activeElement!==textarea)textarea.value=item.text;
       $("scene-font-size").value=item.font_size;
       $("scene-text-color").value=item.color;
       $("scene-text-background").value=item.background;
