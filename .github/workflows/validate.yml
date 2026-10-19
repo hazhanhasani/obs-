@@ -23,6 +23,10 @@ jobs:
           python -m compileall -q dashboard
           cp .env.example .env
           docker compose --profile legacy-demo --profile legacy-file config --quiet
+      - name: Install fonts for RTL text rendering
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fonts-noto-core fonts-dejavu-core
       - name: Install test dependencies
         run: pip install -r dashboard/requirements.txt httpx pytest
       - name: Validate dashboard endpoints
