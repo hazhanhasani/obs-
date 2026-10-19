@@ -4,3 +4,4 @@ python-multipart>=0.0.20,<1
 itsdangerous>=2.2,<3
 psutil>=6,<9
 cryptography>=44,<47
+Pillow>=11,<13
