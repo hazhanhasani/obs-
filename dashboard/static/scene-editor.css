@@ -129,3 +129,14 @@
   .scene-canvas[data-orientation="portrait"]{width:min(100%,330px)}
   .scene-render-image{max-width:100%}
 }
+
+/* v0.7.2 — four independent, touch-friendly OBS-inspired corner controls. */
+.scene-item:not(.selected) .scene-handle{opacity:0;pointer-events:none}
+.scene-item.selected .scene-handle{opacity:1;pointer-events:auto}
+.scene-handle-nw{left:-18px;top:-18px;right:auto;bottom:auto;cursor:nwse-resize}
+.scene-handle-ne{left:auto;top:-18px;right:-18px;bottom:auto;cursor:nesw-resize}
+.scene-handle-sw{left:-18px;top:auto;right:auto;bottom:-18px;cursor:nesw-resize}
+.scene-handle-se{left:auto;top:auto;right:-18px;bottom:-18px;cursor:nwse-resize}
+.scene-canvas.scene-gesturing .scene-item.selected{outline:1px solid #ff893e}
+.scene-handle{touch-action:none}
+.scene-handle::after{width:15px;height:15px}
