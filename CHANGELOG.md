@@ -4,6 +4,18 @@ All significant StreamCore changes are documented here.
 
 This project is still in alpha; stable release guarantees and migration automation are not yet available.
 
+## [0.5.3-alpha] — 2026-10-19
+
+### Fixed
+- Remove the orange highlight that misleadingly outlined the entire scene while the user resized a layer.
+- Replace the 40px solid orange resize square that obscured small overlays with a 14px visible grip and a large transparent mobile touch target.
+- Let the drag handle protrude from an image corner without clipping the image.
+- Force refresh of both versioned CSS and JavaScript scene assets.
+
+### Validation
+- 12 simulated gesture and CSS/DOM regression cases passed, including the new case derived from the user's Android screen recording.
+- End-to-end installation and physical Android QA remain outstanding.
+
 ## [0.5.2-alpha] — 2026-10-19
 
 ### Fixed
