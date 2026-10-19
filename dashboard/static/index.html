@@ -7,11 +7,11 @@
   <meta name="description" content="StreamCore server-side live streaming control center">
   <title>StreamCore | کنترل پخش زنده</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/assets/styles.css?v=0.7.1">
-  <link rel="stylesheet" href="/assets/scene-editor.css?v=0.7.1">
+  <link rel="stylesheet" href="/assets/styles.css?v=0.7.2">
+  <link rel="stylesheet" href="/assets/scene-editor.css?v=0.7.2">
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.15/dist/hls.min.js" defer></script>
-  <script src="/assets/app.js?v=0.7.1" defer></script>
-  <script src="/assets/scene-editor.js?v=0.7.1" defer></script>
+  <script src="/assets/app.js?v=0.7.2" defer></script>
+  <script src="/assets/scene-editor.js?v=0.7.2" defer></script>
 </head>
 <body>
 <section id="login-page" class="login-page" hidden>
@@ -45,7 +45,7 @@
     </nav>
     <div class="sidebar-footer">
       <div class="small-online"><span class="dot green"></span> سرویس مستقل روی VPS</div>
-      <small>نسخه آزمایشی v0.7.1</small>
+      <small>نسخه آزمایشی v0.7.2</small>
     </div>
   </aside>
 
@@ -178,8 +178,9 @@
               <div class="scene-draft-indicator" id="scene-draft-indicator" hidden aria-live="polite">● پیش‌نمایش منتشرنشده — برای مشاهده در پخش زنده ذخیره کنید</div>
             </div>
             <div class="scene-mobile-toolbar">
-              <span id="scene-gesture-status" class="scene-gesture-status" aria-live="off">برای تنظیم، روی لایه بزن و گوشه نارنجی را بکش.</span>
+              <span id="scene-gesture-status" class="scene-gesture-status" aria-live="off">لایه را آزادانه بکش؛ از هر چهار گوشه تغییر اندازه بده. خروج از قاب مجاز است.</span>
               <button type="button" id="scene-toggle-safe" class="mini-action scene-safe-toggle" aria-pressed="false">Safe Area</button>
+              <button type="button" id="scene-center-selected" class="mini-action" title="بازگرداندن لایه خارج از کادر"><i class="bi bi-bounding-box-circles"></i> مرکزچین لایه</button>
               <div class="scene-size-presets" role="group" aria-label="اندازه سریع لایه">
                 <button type="button" id="scene-preset-25" class="mini-action">۲۵٪</button>
                 <button type="button" id="scene-preset-50" class="mini-action">۵۰٪</button>
@@ -203,10 +204,10 @@
             <div class="scene-props" id="scene-properties" hidden>
               <h4 id="scene-current-label">تنظیمات لایه</h4>
               <div class="scene-property-grid">
-                <div><label class="field-label" for="scene-x">موقعیت افقی X (%)</label><input id="scene-x" class="field" type="number" min="0" max="95" step="1"></div>
-                <div><label class="field-label" for="scene-y">موقعیت عمودی Y (%)</label><input id="scene-y" class="field" type="number" min="0" max="95" step="1"></div>
-                <div><label class="field-label" for="scene-w">عرض (%)</label><input id="scene-w" class="field" type="number" min="5" max="100" step="1"></div>
-                <div><label class="field-label" for="scene-h">ارتفاع (%)</label><input id="scene-h" class="field" type="number" min="5" max="100" step="1"></div>
+                <div><label class="field-label" for="scene-x">موقعیت افقی X (%)</label><input id="scene-x" class="field" type="number" min="-200" max="200" step="0.1"></div>
+                <div><label class="field-label" for="scene-y">موقعیت عمودی Y (%)</label><input id="scene-y" class="field" type="number" min="-200" max="200" step="0.1"></div>
+                <div><label class="field-label" for="scene-w">عرض (%)</label><input id="scene-w" class="field" type="number" min="5" max="200" step="0.1"></div>
+                <div><label class="field-label" for="scene-h">ارتفاع (%)</label><input id="scene-h" class="field" type="number" min="5" max="200" step="0.1"></div>
                 <div><label class="field-label" for="scene-opacity">شفافیت (%)</label><input id="scene-opacity" class="field" type="number" min="10" max="100" step="1"></div>
                 <div id="scene-fit-container"><label class="field-label" for="scene-fit">نحوه نمایش تصویر</label><select id="scene-fit" class="field"><option value="contain">نمایش کامل (Contain)</option><option value="cover">پرکردن کادر (Cover)</option><option value="stretch">کشیدن دقیق در کادر (Stretch)</option></select></div>
                 <div><label class="field-label" for="scene-effect">افکت ورود / نمایش</label><select id="scene-effect" class="field">
