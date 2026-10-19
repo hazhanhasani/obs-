@@ -105,6 +105,15 @@ with urllib.request.urlopen("http://127.0.0.1:8000/health",timeout=4) as respons
   sleep 4
 done
 [[ "$healthy" == true ]] || rollback
+# A healthy dashboard alone is not enough if the RTMP media server or TLS
+# reverse proxy failed. Inspect all three mandatory services.
+running_services="$(docker compose ps --status running --services)"
+for required in dashboard mediamtx caddy; do
+  grep -Fxq "$required" <<< "$running_services" || {
+    say "Required service $required is not running after upgrade."
+    rollback
+  }
+done
 trap - ERR
 say "Installed $tag successfully. Backup: $backup"
 say "Release checkout is detached by design; use the timer for later updates."
