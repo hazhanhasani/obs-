@@ -233,21 +233,30 @@ def preflight_scene(media_root, base_file, layers, text_layers):
                 effect_filters({**item, "fit": "contain"}, i + 1, "v0", i + 1)
 
 
-def scene_command(connect, channel, base_file, media_root, target, text_cache=None):
-    """Build ONE FFmpeg pipeline for all media/text overlays."""
-    with connect() as db:
-        media = [dict(r) for r in db.execute(
-            "SELECT sl.layer_id,sl.media_file,sl.x,sl.y,sl.w,sl.h,sl.fit,sl.opacity,"
-            "sl.effect,sl.start_sec,sl.duration_sec,sl.repeat_sec,"
-            "sl.layer_order,m.kind FROM scene_layers sl "
-            "JOIN media m ON m.file=sl.media_file WHERE sl.channel_id=? "
-            "ORDER BY sl.layer_order", (channel,)
-        )]
-        text_layers = [dict(r) for r in db.execute(
-            "SELECT layer_id,text,x,y,w,h,font_size,color,background,align,outline,"
-            "opacity,effect,start_sec,duration_sec,repeat_sec,layer_order "
-            "FROM scene_text_layers WHERE channel_id=? ORDER BY layer_order", (channel,)
-        )]
+def scene_command(connect, channel, base_file, media_root, target, text_cache=None, scene_override=None):
+    """Use identical FFmpeg filtergraph for live streams and unpublished draft previews.
+
+    scene_override contains already-validated media and text dictionaries. Passing
+    it never writes to the persistent channels or scene_layers SQLite tables.
+    """
+    if scene_override is None:
+        with connect() as db:
+            media = [dict(r) for r in db.execute(
+                "SELECT sl.layer_id,sl.media_file,sl.x,sl.y,sl.w,sl.h,sl.fit,sl.opacity,"
+                "sl.effect,sl.start_sec,sl.duration_sec,sl.repeat_sec,"
+                "sl.layer_order,m.kind FROM scene_layers sl "
+                "JOIN media m ON m.file=sl.media_file WHERE sl.channel_id=? "
+                "ORDER BY sl.layer_order", (channel,)
+            )]
+            text_layers = [dict(r) for r in db.execute(
+                "SELECT layer_id,text,x,y,w,h,font_size,color,background,align,outline,"
+                "opacity,effect,start_sec,duration_sec,repeat_sec,layer_order "
+                "FROM scene_text_layers WHERE channel_id=? ORDER BY layer_order", (channel,)
+            )]
+    else:
+        # Never mutate the user's draft while building the FFmpeg filter graph.
+        media = [dict(item) for item in scene_override["media"]]
+        text_layers = [dict(item) for item in scene_override["text_layers"]]
     if len(media) > MAX_LAYERS or len(text_layers) > MAX_TEXT_LAYERS:
         raise ValueError("تعداد لایه‌های صحنه بیش از حد مجاز است.")
     if base_file:
@@ -302,3 +311,17 @@ def scene_command(connect, channel, base_file, media_root, target, text_cache=No
              "-g", "50", "-b:v", f"{bitrate}k", "-maxrate", f"{bitrate}k",
              "-bufsize", f"{bitrate * 2}k",
              "-c:a", "aac", "-ar", "48000", "-b:a", "128k", "-f", "flv", target])
+
+
+
+def scene_snapshot_command(command):
+    """Create a single JPEG frame from the SAME scene graph used for live RTMP.
+
+    No external RTMP connection, no audio muxing, and no persisted changes.
+    Layer timing is evaluated at the beginning of the scene (t≈0).
+    """
+    marker = command.index("-map")
+    return command[:marker] + [
+        "-map", "[vout]", "-frames:v", "1", "-q:v", "3",
+        "-f", "image2pipe", "pipe:1"
+    ]
