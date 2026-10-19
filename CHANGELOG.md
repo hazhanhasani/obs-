@@ -4,6 +4,21 @@ All significant StreamCore changes are documented here.
 
 This project is still in alpha; stable release guarantees and migration automation are not yet available.
 
+## [0.6.1-alpha] — 2026-10-19
+
+### Fixed
+- Wire the server-side FFmpeg scene snapshot into the studio layout comparison flow.
+- Warn when Telegram destinations broadcast a different channel than the one currently edited.
+- Add a deliberate one-click switch to the channel configured for Telegram, without automatically remapping destinations.
+- Highlight when a selected channel is not in scene mode or its local encoder is stalled.
+- Match letterbox color in Studio to the actual black-background broadcast canvas.
+- Bump scene editor JS/CSS asset URLs to avoid stale mobile layouts.
+
+### Tests
+- Sixteen source-level mobile editor/persistence/destination tests passed.
+- Added authenticated FFmpeg preview API tests for CSRF, invalid drafts, concurrency and non-disruptive rendering.
+- End-to-end VPS deployment and Telegram comparison are still pending.
+
 ## [0.6.0-alpha] — 2026-10-19
 
 ### Added
