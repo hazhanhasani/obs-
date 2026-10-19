@@ -1,7 +1,7 @@
 """One scene-space geometry contract shared by FFmpeg composition and diagnostics.
 
 Like OBS scene items, a layer has a bounding box independent from the media
-pixels drawn inside it. Coordinates are based on the final 1280×720 canvas.
+pixels drawn inside it. Coordinates are based on the active canvas dimensions selected for the channel.
 This code is original; no OBS GPL implementation is incorporated.
 """
 from dataclasses import dataclass
@@ -9,6 +9,22 @@ from dataclasses import dataclass
 CANVAS_WIDTH = 1280
 CANVAS_HEIGHT = 720
 FIT_MODES = ("contain", "cover", "stretch")
+
+# Rendering presets are intentionally finite to cap CPU and memory requirements.
+# Older channels remain landscape unless explicitly changed by the operator.
+CANVAS_PRESETS = {
+    "landscape": (1280, 720),
+    "portrait": (720, 1280),
+    "portrait_fullhd": (1080, 1920),
+}
+
+
+def canvas_size(preset: str = "landscape") -> tuple[int, int]:
+    try:
+        return CANVAS_PRESETS[preset]
+    except (KeyError, TypeError) as error:
+        raise ValueError("Unknown scene canvas preset.") from error
+
 
 
 @dataclass(frozen=True)
