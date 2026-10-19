@@ -4,6 +4,21 @@ All significant StreamCore changes are documented here.
 
 This project is still in alpha; stable release guarantees and migration automation are not yet available.
 
+## [0.6.2-alpha] — 2026-10-19
+
+### Fixed
+- Replace muted CSS color bars in Scene Studio with an authenticated JPEG
+  frame generated from the actual FFmpeg `testsrc2` 1280×720 input.
+- Visibly distinguish unsaved scene drafts from the live stream using an
+  overlay that does not intercept touch gestures.
+- Retain a CSS-only fallback when FFmpeg snapshot generation is unavailable.
+- Bump editor JS/CSS cache keys to 0.6.2.
+
+### Validation
+- 18 source-based mobile interaction, draft/live state, and destination tests passed.
+- Added integration coverage for authenticated 1280×720 FFmpeg test-pattern rendering.
+- Source is committed; VPS rollout and live Telegram output equivalence are not yet verified.
+
 ## [0.6.1-alpha] — 2026-10-19
 
 ### Fixed
