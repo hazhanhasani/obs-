@@ -27,6 +27,10 @@ jobs:
           python -m compileall -q dashboard
           cp .env.example .env
           docker compose --profile legacy-demo --profile legacy-file config --quiet
+      - name: Verify actual browser resize handles (desktop and touch-width)
+        run: |
+          command -v google-chrome || command -v google-chrome-stable || command -v chromium
+          node --test tests/test_scene_handle_browser.cjs
       - name: Install fonts for RTL text rendering
         run: |
           sudo apt-get update
