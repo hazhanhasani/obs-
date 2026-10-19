@@ -1,0 +1,12 @@
+[Unit]
+Description=Check StreamCore stable Releases every six hours
+
+[Timer]
+OnCalendar=*-*-* 03,09,15,21:00:00
+RandomizedDelaySec=30min
+Persistent=true
+AccuracySec=5min
+Unit=streamcore-release-update.service
+
+[Install]
+WantedBy=timers.target
