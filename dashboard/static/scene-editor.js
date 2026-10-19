@@ -133,11 +133,36 @@
       textLayers=(scene.text_layers||[]).map(normalize);
       selected=layers[0]?.layer_id||textLayers[0]?.layer_id||null;
       $("scene-channel").value=channel;
-      fillChoices();preview();resetDirty();
+      fillChoices();preview();resetDirty();showOutputBindings();
     }catch(e){toast(e.message);}
+  }
+  function showOutputBindings(){
+    const node=$("scene-output-bindings");
+    if(!node || !overview || !channel)return;
+    const chosen=(overview.channels||[]).find(item=>item.id===channel);
+    if(!chosen){node.textContent="کانال انتخاب‌شده در سرور وجود ندارد.";return;}
+    const bound=(overview.destinations||[]).filter(item=>item.channel_id===channel&&item.enabled);
+    const otherTelegram=(overview.destinations||[]).filter(item=>
+      item.platform==="telegram"&&item.enabled&&item.channel_id!==channel);
+    const output=[];
+    if(chosen.mode!=="scene"){
+      output.push("⚠️ کانال «"+channel+"» در حالت "+chosen.mode+
+        " است؛ چیدمان استودیو تا هنگام ذخیره صحنه، منبع پخش نیست.");
+    }else if(chosen.running){
+      output.push("کانال "+channel+" در حالت Scene است و پردازش FFmpeg اجرا می‌شود؛ دریافت تلگرام جداگانه بررسی می‌شود.");
+    }else{
+      output.push("کانال "+channel+" در حالت Scene ذخیره شده، اما اکنون پخش آن فعال نیست.");
+    }
+    if(bound.length)output.push("مقصدهای فعال این کانال: "+bound.map(x=>x.label||x.platform).join("، "));
+    else output.push("مقصد خارجی فعالی برای این کانال تنظیم نشده است.");
+    if(otherTelegram.length)output.push("⚠️ تلگرام فعال روی کانال دیگر: "+
+      [...new Set(otherTelegram.map(x=>x.channel_id))].join("، "));
+    node.textContent=output.join("\n");
+    node.dataset.warning=(chosen.mode!=="scene"||otherTelegram.length)?"true":"false";
   }
   function sync(data){
     overview=data;
+    showOutputBindings();
     const old=media.map(x=>x.file+":"+x.kind).join(",");
     media=data.media||[];
     const channelOptions=(data.channels||[]).map(c=>'<option value="'+safe(c.id)+'">'+safe(c.name)+'</option>').join("");
@@ -283,6 +308,7 @@
       }
       resetDirty();
       recordGeometry();
+      try{overview=await api("/overview");showOutputBindings();}catch(_){/* periodic poll will refresh */}
       toast("چیدمان ذخیره شد. اگر کانال روشن باشد پخش برای اعمال صحنه دوباره راه‌اندازی می‌شود.");
     }catch(e){toast(e.message);button.disabled=false;}
     finally{saving=false;button.textContent="ذخیره و اعمال صحنه";}
