@@ -21,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.middleware.sessions import SessionMiddleware
 from destinations import DestinationSupervisor, init_table
+from telemetry import ProgressTracker
 from scene import init_scene_db, scene_for, save_scene, remove_scene, is_scene_media_used, scene_command, preflight_scene
 from PIL import Image, UnidentifiedImageError
 
@@ -124,6 +125,8 @@ class Controller:
         self.processes = {}
         self.next_retry = {}
         self.errors = {}
+        self.tracker = ProgressTracker()
+        self.resource_processes = {}
         self.stop_event = threading.Event()
         self.thread = None
 
@@ -156,6 +159,8 @@ class Controller:
     def stop(self, channel):
         with self.lock:
             process = self.processes.pop(channel, None)
+            self.tracker.detach(channel, process.pid if process else None)
+            self.resource_processes.pop(channel, None)
             if process is not None and process.poll() is None:
                 try:
                     os.killpg(process.pid, signal.SIGTERM)
@@ -174,19 +179,32 @@ class Controller:
                 if channel not in enabled:
                     self.stop(channel)
                 elif self.processes[channel].poll() is not None:
-                    self.processes.pop(channel, None)
+                    finished = self.processes.pop(channel)
+                    self.tracker.detach(channel, finished.pid)
+                    self.resource_processes.pop(channel, None)
             for channel, row in enabled.items():
                 if channel in self.processes or time.monotonic() < self.next_retry.get(channel, 0):
                     continue
                 try:
                     cmd = self.command(row)
+                    # FFmpeg -progress emits bounded machine-readable records.
+                    # A reader thread drains stdout; stderr remains in FFmpeg logs.
+                    cmd = [cmd[0], "-nostats", "-stats_period", "5",
+                           "-progress", "pipe:1", *cmd[1:]]
                     log_path = DATA / ("ffmpeg-" + channel + ".log")
                     with log_path.open("ab") as log:
                         proc = subprocess.Popen(
-                            cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                            cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                             stderr=log, start_new_session=True, close_fds=True
                         )
                     self.processes[channel] = proc
+                    self.tracker.attach(channel, proc)
+                    try:
+                        resource = psutil.Process(proc.pid)
+                        resource.cpu_percent(interval=None)  # Prime nonblocking CPU sampling.
+                        self.resource_processes[channel] = resource
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        self.resource_processes.pop(channel, None)
                     self.errors.pop(channel, None)
                 except (ValueError, OSError) as error:
                     self.errors[channel] = str(error)
@@ -195,9 +213,24 @@ class Controller:
     def state(self, channel):
         with self.lock:
             process = self.processes.get(channel)
+            running = process is not None and process.poll() is None
+            encoder = self.tracker.snapshot(
+                channel, process.pid if process else None, running
+            )
+            encoder["cpu_percent"] = None
+            encoder["memory_mb"] = None
+            if running:
+                resource = self.resource_processes.get(channel)
+                if resource is not None and resource.pid == process.pid:
+                    try:
+                        encoder["cpu_percent"] = round(resource.cpu_percent(interval=None), 1)
+                        encoder["memory_mb"] = round(resource.memory_info().rss / (1024 * 1024), 1)
+                    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                        self.resource_processes.pop(channel, None)
             return {
-                "running": process is not None and process.poll() is None,
+                "running": running,
                 "error": self.errors.get(channel),
+                "encoder": encoder,
             }
 
     def start(self):
