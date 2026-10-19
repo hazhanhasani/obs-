@@ -16,6 +16,8 @@ stop(){ say "ERROR: $*" >&2; exit 1; }
 [[ -d "$APP/.git" && -f "$APP/.env" ]] || stop "Existing installation required."
 [[ "$(git -C "$APP" remote get-url origin)" == "$ORIGIN" ]] || stop "Unexpected git origin."
 [[ -z "$(git -C "$APP" status --porcelain --untracked-files=no)" ]] || stop "Dirty tracked worktree."
+[[ "$(git -C "$APP" branch --show-current)" == "main" ]] ||
+  stop "Updater requires a clean main branch; refusing detached-HEAD deployment."
 exec 9>/run/lock/streamcore-update.lock
 flock -n 9 || { say "Update already running"; exit 0; }
 cd "$APP"
@@ -44,6 +46,10 @@ with sqlite3.connect("/data/streamcore.sqlite3") as db:
   if (( desired > 0 )); then say "Live channels active; deferring update."; exit 0; fi
 fi
 old="$(git rev-parse HEAD)"
+# A release must advance the installation; never deploy a tag that rewinds
+# main or introduces unrelated history.
+git merge-base --is-ancestor "$old" "$target" ||
+  stop "Release tag is not a fast-forward from installed main. Skipping unsafe update."
 old_branch="$(git symbolic-ref --quiet --short HEAD || true)"
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 backup="$BACKUPS/$stamp"
@@ -75,14 +81,16 @@ rollback(){
   if [[ -n "$old_branch" ]]; then
     git checkout --quiet "$old_branch" || git checkout --quiet --detach "$old" || true
   else
-    git checkout --quiet --detach "$old" || true
+    # Repository was clean before deployment. Returning main to its previous
+  # commit preserves normal git pull --ff-only on all subsequent upgrades.
+  git reset --hard --quiet "$old" || true
   fi
   docker compose up -d --build || true
   say "Database backup retained separately at $backup (not overwritten)."
   exit 1
 }
 trap rollback ERR
-git checkout --quiet --detach "$target"
+git merge --ff-only --quiet "$target"
 docker compose config --quiet
 docker compose build dashboard
 docker compose up -d
