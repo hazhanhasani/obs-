@@ -101,3 +101,16 @@
   padding:12px 15px;margin:12px 0 0;overflow-wrap:anywhere}
 .scene-output-bindings[data-warning="true"]{border-color:#a36a32;background:#352416;color:#ffd9a2}
 .scene-canvas{background-color:#000}
+
+/* v0.6.2 — draft/live clarity: OBS-style program versus editor semantics. */
+.scene-draft-indicator{
+  position:absolute;z-index:15;top:10px;right:10px;max-width:75%;
+  background:rgba(115,44,14,.94);border:1px solid #ff995e;
+  color:#fff0dc;padding:7px 11px;border-radius:8px;
+  font-size:12px;line-height:1.6;font-weight:750;direction:rtl;
+  pointer-events:none;box-shadow:0 4px 18px #000a;
+}
+.scene-draft-indicator[hidden]{display:none}
+@media(max-width:620px){
+  .scene-draft-indicator{font-size:10px;max-width:80%;top:5px;right:5px;padding:4px 7px}
+}
