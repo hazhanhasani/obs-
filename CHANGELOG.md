@@ -4,6 +4,25 @@ All significant StreamCore changes are documented here.
 
 This project is still in alpha; stable release guarantees and migration automation are not yet available.
 
+## [0.6.0-alpha] — 2026-10-19
+
+### Added
+- Local FFmpeg progress tracking via a bounded in-memory collector.
+- Five-second sampling of per-channel encoder FPS, speed, CPU and RSS memory.
+- Encoder health states: stopped, starting, healthy, slow, no-data and stalled.
+- RTL status widgets on the main dashboard and system management screen.
+
+### Security and reliability
+- Monitoring endpoint uses the existing authenticated `/api/overview`.
+- Progress output is whitelisted and retains no RTMP secrets.
+- PID isolation prevents a stopped encoder's progress from contaminating a restarted channel.
+- Added Python collector/API tests and Node.js dashboard rendering tests.
+
+### Deployment
+- Source changes only; no VPS or live streams have been modified.
+- Live FFmpeg / MediaMTX validation and longer-duration reliability tests are pending.
+- See [Encoder Monitoring](docs/MONITORING.md).
+
 ## [0.5.3-alpha] — 2026-10-19
 
 ### Fixed
