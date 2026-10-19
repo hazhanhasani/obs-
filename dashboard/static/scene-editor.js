@@ -5,9 +5,10 @@
   const $=(id)=>document.getElementById(id);
   const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
   const safe=(x)=>String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-  let api,overview,page,toast;
+  let api,overview,page,toast,appState;
   let channel=null,baseFile=null,layers=[],textLayers=[],selected=null,dirty=false,drag=null;
   let pendingRender=false, saving=false, lastResize=null;
+  let draftVersion=0, actualPreviewUrl=null, previewRendering=false;
   let media=[],loadSequence=0;
   const fieldNames=["x","y","w","h","opacity"];
   const byFile=(name)=>media.find(m=>m.file===name);
@@ -17,8 +18,25 @@
     duration_sec:Number(l.duration_sec)||0,repeat_sec:Number(l.repeat_sec)||0});
   const poster=(name)=>{const m=byFile(name);return m?"/api/media/poster/"+m.id:"";};
   const fileName=(name)=>byFile(name)?.name||"Unknown file";
-  function markDirty(){dirty=true;$("scene-save").disabled=false;$("scene-note").textContent="تغییرات هنوز ذخیره نشده‌اند.";}
-  function resetDirty(){dirty=false;$("scene-save").disabled=true;$("scene-note").textContent="صحنه آماده است. پیش‌نمایش این صفحه از تصاویر ثابت استفاده می‌کند؛ برای دیدن خروجی واقعی به داشبورد بروید.";}
+  function invalidateActualPreview(){
+    draftVersion++;
+    const frame=$("scene-render-image");
+    frame.hidden=true;
+    frame.removeAttribute("src");
+    if(actualPreviewUrl){URL.revokeObjectURL(actualPreviewUrl);actualPreviewUrl=null;}
+    $("scene-render-status").textContent="چیدمان تغییر کرده است؛ برای تطبیق با خروجی تلگرام، دوباره «رندر خروجی» را بزنید.";
+  }
+  function markDirty(){
+    dirty=true;
+    invalidateActualPreview();
+    $("scene-save").disabled=false;
+    $("scene-note").textContent="تغییرات ذخیره‌نشده‌اند. ابتدا رندر واقعی را بررسی کنید، سپس ذخیره کنید.";
+  }
+  function resetDirty(){
+    dirty=false;
+    $("scene-save").disabled=true;
+    $("scene-note").textContent="صحنه ذخیره شد. این پیش‌نمایش قابل ویرایش و تقریبی است؛ برای تطبیق دقیق از رندر FFmpeg استفاده کنید.";
+  }
   function fillChoices(){
     const choices=media.filter(m=>m.kind==="video").map(m=>'<option value="'+safe(m.file)+'">'+safe(m.name)+'</option>').join("");
     const selectedBase=baseFile;
@@ -106,6 +124,10 @@
         return;
       }
       channel=nextChannel;
+      invalidateActualPreview();
+      $("scene-render-status").textContent=scene.mode==="scene"
+        ?"این صحنه روی کانال انتخاب‌شده ذخیره شده است. برای مشاهده تصویر واقعی FFmpeg روی «رندر خروجی» بزنید."
+        :"این کانال هنوز روی حالت پخش صحنه نیست. بعد از ذخیره و اعمال صحنه، منبع آن به Scene تغییر می‌کند.";
       baseFile=scene.base_file;
       layers=(scene.layers||[]).map(normalize);
       textLayers=(scene.text_layers||[]).map(normalize);
@@ -201,6 +223,46 @@
     const effect="fx-"+item.effect;
     if(["fx-fade","fx-slide-left","fx-slide-right","fx-blink"].includes(effect))element.classList.add(effect);
     else toast("این لایه افکت حرکتی ندارد.");
+  }
+  async function renderActualPreview(){
+    if(!channel || previewRendering || drag || saving)return;
+    previewRendering=true;
+    const currentDraft=draftVersion, activeChannel=channel;
+    const button=$("scene-render-actual");
+    button.disabled=true;
+    $("scene-render-status").textContent="در حال ساخت فریم واقعی FFmpeg روی VPS؛ لطفاً صبر کنید...";
+    try{
+      const response=await fetch("/api/channels/"+encodeURIComponent(activeChannel)+"/scene/preview",{
+        method:"POST",
+        headers:{"Accept":"image/jpeg","Content-Type":"application/json",
+          "X-CSRF-Token":appState?.csrf||""},
+        credentials:"same-origin",
+        body:JSON.stringify({base_file:baseFile||null,layers,text_layers:textLayers})
+      });
+      if(!response.ok){
+        let message="رندر واقعی ناموفق بود (HTTP "+response.status+").";
+        try{const data=await response.json();if(typeof data.detail==="string")message=data.detail;}catch(_){}
+        throw new Error(message);
+      }
+      const data=await response.blob();
+      if(currentDraft!==draftVersion || channel!==activeChannel){
+        $("scene-render-status").textContent="چیدمان در زمان رندر تغییر کرد؛ دوباره رندر بگیرید.";
+        return;
+      }
+      if(data.type && !data.type.includes("image/jpeg"))throw new Error("سرور تصویر JPEG معتبر برنگرداند.");
+      const url=URL.createObjectURL(data);
+      const frame=$("scene-render-image");
+      if(actualPreviewUrl)URL.revokeObjectURL(actualPreviewUrl);
+      actualPreviewUrl=url;
+      frame.src=url;frame.hidden=false;
+      $("scene-render-status").textContent="این تصویر از همان فیلترهای FFmpeg خروجی کانال ساخته شده، پیش از ذخیره و بدون قطع پخش.";
+    }catch(error){
+      $("scene-render-status").textContent=error.message;
+      toast(error.message);
+    }finally{
+      previewRendering=false;
+      button.disabled=false;
+    }
   }
   async function save(){
     if(!channel)return;
@@ -326,7 +388,7 @@
     markDirty();preview();recordGeometry();
   }
   function init(deps){
-    api=deps.api;toast=deps.toast;page=deps.page;
+    api=deps.api;toast=deps.toast;page=deps.page;appState=deps.state;
     $("scene-channel").addEventListener("change",e=>open(e.target.value));
     $("scene-base").addEventListener("change",e=>{baseFile=e.target.value||null;markDirty();preview();});
     $("scene-add").addEventListener("click",addLayer);
@@ -338,6 +400,7 @@
     }
     for(const name of ["effect","start","duration","repeat"])$("scene-"+name).addEventListener("change",inputChanged);
     $("scene-save").addEventListener("click",save);
+    $("scene-render-actual").addEventListener("click",renderActualPreview);
     $("scene-open-media").addEventListener("click",()=>page("media"));
     for(const n of fieldNames)$("scene-"+n).addEventListener("change",inputChanged);
     $("scene-fit").addEventListener("change",inputChanged);
