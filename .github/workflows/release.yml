@@ -1,0 +1,55 @@
+name: Publish validated StreamCore Release
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require stable SemVer matching VERSION
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+          installed="$(tr -d '[:space:]' < VERSION)"
+          [[ "$installed" == "$TAG" || "v$installed" == "$TAG" ]] || exit 1
+      - name: Source validation
+        run: |
+          bash -n install.sh
+          bash -n scripts/install-updater.sh
+          bash -n scripts/update-release.sh
+          bash tests/test_installer.sh
+          node --check dashboard/static/app.js
+          node --check dashboard/static/scene-editor.js
+          node --test tests/test_scene_editor.cjs
+          node --test tests/test_telemetry_ui.cjs
+          python -m compileall -q dashboard scripts
+          cp .env.example .env
+          docker compose config --quiet
+      - name: Install test tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg fonts-noto-core fonts-dejavu-core
+          pip install -r dashboard/requirements.txt pytest httpx
+      - name: Execute regression suite
+        run: python -m pytest -q tests
+      - name: Build production image before publishing
+        run: docker compose build dashboard
+      - name: Publish approved release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release already exists."
+            exit 0
+          fi
+          gh release create "$GITHUB_REF_NAME" --title "StreamCore $GITHUB_REF_NAME" --generate-notes --latest --verify-tag
