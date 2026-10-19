@@ -28,12 +28,14 @@
   }
   function markDirty(){
     dirty=true;
+    $("scene-draft-indicator").hidden=false;
     invalidateActualPreview();
     $("scene-save").disabled=false;
     $("scene-note").textContent="تغییرات ذخیره‌نشده‌اند. ابتدا رندر واقعی را بررسی کنید، سپس ذخیره کنید.";
   }
   function resetDirty(){
     dirty=false;
+    $("scene-draft-indicator").hidden=true;
     $("scene-save").disabled=true;
     $("scene-note").textContent="صحنه ذخیره شد. این پیش‌نمایش قابل ویرایش و تقریبی است؛ برای تطبیق دقیق از رندر FFmpeg استفاده کنید.";
   }
@@ -53,9 +55,19 @@
     // media library refreshes and responsive layout changes may call preview().
     if(drag){pendingRender=true;return;}
     pendingRender=false;
-    const bg=$("scene-base-image"),src=baseFile?poster(baseFile):"";
-    if(src){bg.src=src;bg.hidden=false;$("scene-colorbars").hidden=true;}
-    else{bg.hidden=true;bg.removeAttribute("src");$("scene-colorbars").hidden=false;}
+    const bg=$("scene-base-image");
+    // Use an actual FFmpeg testsrc2 frame, not muted CSS bars that disagree
+    // with the published stream. Keep CSS bars only as an offline fallback.
+    const src=baseFile?poster(baseFile):"/api/scene/test-pattern";
+    bg.onerror=()=>{bg.hidden=true;$("scene-colorbars").hidden=false;};
+    if(src){
+      if(bg.getAttribute?.("src")!==src)bg.src=src;
+      bg.hidden=false;
+      $("scene-colorbars").hidden=true;
+    }else{
+      bg.hidden=true;bg.removeAttribute("src");
+      $("scene-colorbars").hidden=false;
+    }
     const mediaHtml=layers.map((l,i)=>{
       const m=byFile(l.media_file);
       const css='left:'+l.x+'%;top:'+l.y+'%;width:'+l.w+'%;height:'+l.h+'%;opacity:'+(l.opacity/100)+';';
