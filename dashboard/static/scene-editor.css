@@ -1,7 +1,7 @@
 
 /* StreamCore visual scene composer. Editor preview is 16:9 and static. */
 .scene-grid{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(285px,0.85fr);gap:20px}
-.scene-canvas{width:100%;aspect-ratio:16/9;position:relative;overflow:hidden;background:#111e2f;border:1px solid #435368;border-radius:12px;direction:ltr;touch-action:none;user-select:none}
+.scene-canvas{width:100%;aspect-ratio:16/9;position:relative;overflow:hidden;background:#000;border:1px solid #435368;border-radius:12px;direction:ltr;touch-action:none;user-select:none}
 .scene-canvas>img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
 .scene-test-bars{position:absolute;inset:0;background:linear-gradient(90deg,#d7d7d7 0 14.28%,#f6ed28 14.28% 28.56%,#23e6e6 28.56% 42.84%,#31e52e 42.84% 57.12%,#d842d8 57.12% 71.4%,#de3e3e 71.4% 85.68%,#2c4ddb 85.68% 100%);opacity:.25}
 .scene-items{position:absolute;inset:0;touch-action:none}
@@ -94,3 +94,10 @@
   .scene-actual-heading{align-items:stretch}
   .scene-actual-heading button{width:100%}
 }
+
+/* Output-channel binding diagnostics: prevents editing a different live target. */
+.scene-output-bindings{white-space:pre-line;border-radius:10px;border:1px solid #304556;
+  background:#101d2b;color:#b9d2e1;font-size:12px;line-height:1.95;
+  padding:12px 15px;margin:12px 0 0;overflow-wrap:anywhere}
+.scene-output-bindings[data-warning="true"]{border-color:#a36a32;background:#352416;color:#ffd9a2}
+.scene-canvas{background-color:#000}
