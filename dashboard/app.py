@@ -21,6 +21,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.middleware.sessions import SessionMiddleware
 from destinations import DestinationSupervisor, init_table
+from scene import init_scene_db, scene_for, save_scene, remove_scene, is_scene_media_used, scene_command
+from PIL import Image, UnidentifiedImageError
 
 ROOT = Path(__file__).resolve().parent
 MEDIA = Path(os.getenv("MEDIA_DIR", "/media")).resolve()
@@ -31,7 +33,11 @@ SECRET = os.getenv("SESSION_SECRET", "")
 MAX_MB = max(1, int(os.getenv("MAX_UPLOAD_MB", "1024")))
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
 SLUG = re.compile(r"^[a-z][a-z0-9_-]{2,39}$")
-VALID_EXT = {".mp4", ".mkv", ".mov"}
+VIDEO_EXT = {".mp4", ".mkv", ".mov"}
+IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp"}
+VALID_EXT = VIDEO_EXT | IMAGE_EXT
+MAX_IMAGE_BYTES = 12 * 1024 * 1024
+Image.MAX_IMAGE_PIXELS = 20_000_000
 
 if not re.fullmatch(r"[a-zA-Z][a-zA-Z0-9_-]{2,31}", USERNAME):
     raise RuntimeError("ADMIN_USERNAME must be 3-32 ASCII letters, numbers, underscores or hyphens")
@@ -91,6 +97,27 @@ def validate_media(path: Path):
         raise ValueError("فرمت ویدئو باید H.264 باشد؛ ابتدا فایل را تبدیل کنید.")
     return float(parsed.get("format", {}).get("duration") or 0)
 
+def inspect_media(path: Path):
+    if path.suffix.lower() in IMAGE_EXT:
+        if path.stat().st_size > MAX_IMAGE_BYTES:
+            raise ValueError("حداکثر حجم تصویر ۱۲ مگابایت است.")
+        formats = {".png": {"PNG"}, ".jpg": {"JPEG"}, ".jpeg": {"JPEG"}, ".webp": {"WEBP"}}
+        try:
+            with Image.open(path) as img:
+                if img.format not in formats[path.suffix.lower()]:
+                    raise ValueError("محتوای تصویر با پسوند فایل مطابقت ندارد.")
+                if (img.width < 16 or img.height < 16 or img.width > 8192
+                    or img.height > 8192 or img.width * img.height > 20_000_000):
+                    raise ValueError("ابعاد تصویر باید حداقل ۱۶ پیکسل و حداکثر ۲۰ مگاپیکسل باشد.")
+                if getattr(img, "n_frames", 1) != 1:
+                    raise ValueError("تصاویر متحرک پشتیبانی نمی‌شوند.")
+                img.verify()
+        except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as error:
+            raise ValueError("فایل تصویر معتبر نیست.") from error
+        return "image", 0.0
+    return "video", validate_media(path)
+
+
 class Controller:
     def __init__(self):
         self.lock = threading.RLock()
@@ -103,6 +130,8 @@ class Controller:
     def command(self, row):
         target = "rtmp://mediamtx:1935/" + row["id"]
         base = ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "warning", "-y"]
+        if row["mode"] == "scene":
+            return scene_command(connect, row["id"], row["file"], MEDIA, target)
         if row["mode"] == "test":
             return base + [
                 "-re", "-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=25",
@@ -195,6 +224,7 @@ login_lock = threading.Lock()
 @asynccontextmanager
 async def lifespan(app):
     init_db()
+    init_scene_db(connect)
     init_table(connect)
     controller.start()
     destination_manager.start()
@@ -289,7 +319,7 @@ def overview():
         "channels": channels, "media": media,
         "destinations": destination_manager.public_rows(),
         "system": {"cpu": cpu, "ram": ram, "total_ram": round(psutil.virtual_memory().total / 1024**3, 1)},
-        "limits": {"max_upload_mb": MAX_MB},
+        "limits": {"max_upload_mb": MAX_MB, "max_image_mb": 12},
         "time": int(time.time())
     }
 
@@ -366,6 +396,7 @@ def remove_channel(request: Request, channel: str):
             raise HTTPException(status_code=404)
         db.execute("DELETE FROM channels WHERE id=?", (channel,))
     destination_manager.delete_channel(channel)
+    remove_scene(connect, channel)
     controller.stop(channel)
     return {"ok": True}
 
@@ -376,12 +407,12 @@ async def save_media_stream(original: str, chunks):
         raise HTTPException(status_code=422, detail="نام فایل معتبر نیست.")
     suffix = Path(original).suffix.lower()
     if suffix not in VALID_EXT:
-        raise HTTPException(status_code=422, detail="فرمت‌های مجاز MP4، MOV و MKV هستند.")
+        raise HTTPException(status_code=422, detail="فرمت‌های مجاز MP4، MOV، MKV، PNG، JPG و WebP هستند.")
 
     stored_name = secrets.token_hex(16) + suffix
     destination = MEDIA / stored_name
     total = 0
-    limit = MAX_MB * 1024 * 1024
+    limit = MAX_IMAGE_BYTES if suffix in IMAGE_EXT else MAX_MB * 1024 * 1024
     try:
         with destination.open("xb") as out:
             async for chunk in chunks:
@@ -391,16 +422,16 @@ async def save_media_stream(original: str, chunks):
                 if total > limit:
                     raise HTTPException(
                         status_code=413,
-                        detail=f"حجم فایل از محدودیت {MAX_MB} مگابایت بیشتر است."
+                        detail="حجم فایل از محدودیت مجاز برای تصویر یا ویدئو بیشتر است."
                     )
                 await asyncio.to_thread(out.write, chunk)
         if not total:
             raise HTTPException(status_code=422, detail="فایل خالی است.")
-        duration = await asyncio.to_thread(validate_media, destination)
+        kind, duration = await asyncio.to_thread(inspect_media, destination)
         with connect() as db:
             db.execute(
-                "INSERT INTO media(file,name,bytes,duration,created) VALUES(?,?,?,?,?)",
-                (stored_name, original[:180], total, duration, int(time.time()))
+                "INSERT INTO media(file,name,bytes,duration,created,kind) VALUES(?,?,?,?,?,?)",
+                (stored_name, original[:180], total, duration, int(time.time()), kind)
             )
     except ValueError as error:
         destination.unlink(missing_ok=True)
@@ -413,7 +444,7 @@ async def save_media_stream(original: str, chunks):
     except BaseException:
         destination.unlink(missing_ok=True)
         raise
-    return {"ok": True, "name": original, "bytes": total, "duration": duration}
+    return {"ok": True, "name": original, "bytes": total, "duration": duration, "kind": kind}
 
 
 @app.post("/api/media/raw")
@@ -426,8 +457,8 @@ async def upload_raw(request: Request, filename: str):
             declared_size = int(declared)
         except ValueError as error:
             raise HTTPException(status_code=400, detail="اندازه درخواست معتبر نیست.") from error
-        if declared_size > MAX_MB * 1024 * 1024:
-            raise HTTPException(status_code=413, detail=f"حجم فایل از محدودیت {MAX_MB} مگابایت بیشتر است.")
+        if declared_size > (MAX_IMAGE_BYTES if Path(filename).suffix.lower() in IMAGE_EXT else MAX_MB * 1024 * 1024):
+            raise HTTPException(status_code=413, detail="حجم فایل بیشتر از حد مجاز است.")
     return await save_media_stream(filename, request.stream())
 
 
@@ -456,11 +487,81 @@ def delete_media(request: Request, media_id: int):
         row = db.execute("SELECT file FROM media WHERE id=?", (media_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404)
-        if db.execute("SELECT count(*) FROM channels WHERE file=?", (row["file"],)).fetchone()[0]:
+        if db.execute("SELECT count(*) FROM channels WHERE file=?", (row["file"],)).fetchone()[0] or is_scene_media_used(connect, row["file"]):
             raise HTTPException(status_code=409, detail="این فایل به یک کانال متصل است.")
         db.execute("DELETE FROM media WHERE id=?", (media_id,))
     (MEDIA / row["file"]).unlink(missing_ok=True)
     return {"ok": True}
+
+
+class SceneLayerInput(BaseModel):
+    layer_id: str = Field(pattern=r"^[a-z][a-z0-9_-]{2,35}$")
+    media_file: str = Field(min_length=5, max_length=96)
+    x: int = Field(ge=0, le=95)
+    y: int = Field(ge=0, le=95)
+    w: int = Field(ge=5, le=100)
+    h: int = Field(ge=5, le=100)
+    fit: str = Field(default="contain", pattern=r"^(contain|cover)$")
+    opacity: int = Field(default=100, ge=10, le=100)
+
+
+class SceneInput(BaseModel):
+    base_file: str | None = None
+    layers: list[SceneLayerInput] = Field(default_factory=list, max_length=8)
+
+
+@app.get("/api/channels/{channel}/scene")
+def get_scene(request: Request, channel: str):
+    authorize(request)
+    try:
+        return scene_for(connect, channel)
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@app.put("/api/channels/{channel}/scene")
+def update_scene(request: Request, channel: str, body: SceneInput):
+    authorize(request, unsafe=True)
+    try:
+        save_scene(connect, channel, body.base_file, body.layers)
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    # Rebuild the encoder only when the operator explicitly saves the scene.
+    # Channel desired-state and destination configurations remain preserved.
+    controller.stop(channel)
+    controller.next_retry.pop(channel, None)
+    controller.reconcile()
+    return {"ok": True, "scene": scene_for(connect, channel)}
+
+
+@app.get("/api/media/poster/{media_id}")
+def media_poster(request: Request, media_id: int):
+    authorize(request)
+    with connect() as db:
+        row = db.execute("SELECT file,kind FROM media WHERE id=?", (media_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="رسانه پیدا نشد.")
+    path = (MEDIA / row["file"]).resolve()
+    if not path.is_relative_to(MEDIA) or not path.is_file():
+        raise HTTPException(status_code=404, detail="فایل وجود ندارد.")
+    if row["kind"] == "image":
+        return FileResponse(path, headers={"Cache-Control": "private, max-age=3600"})
+    thumbnail_dir = DATA / "posters"
+    thumbnail_dir.mkdir(parents=True, exist_ok=True)
+    thumbnail = thumbnail_dir / (path.stem + ".jpg")
+    if not thumbnail.is_file():
+        try:
+            subprocess.run(
+                ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+                 "-i", str(path), "-vf", "scale=480:-2", "-frames:v", "1",
+                 str(thumbnail)], check=True, capture_output=True, timeout=15
+            )
+        except (OSError, subprocess.SubprocessError) as error:
+            thumbnail.unlink(missing_ok=True)
+            raise HTTPException(status_code=422, detail="امکان ساخت تصویر بندانگشتی نیست.") from error
+    return FileResponse(thumbnail, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600"})
 
 
 class DestinationNew(BaseModel):
