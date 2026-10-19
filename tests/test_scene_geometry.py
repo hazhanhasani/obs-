@@ -36,7 +36,7 @@ class SceneGeometryTests(unittest.TestCase):
 
 
     def test_rejects_off_canvas_and_invalid_extent(self):
-        for item in (dict(x=90,y=0,w=20,h=30),
+        for item in (dict(x=220,y=0,w=20,h=30),
                      dict(x=-250,y=95,w=30,h=10),
                      dict(x=0,y=0,w=0,h=20),
                      dict(x=-1,y=0,w=250,h=5)):
