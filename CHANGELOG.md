@@ -4,6 +4,33 @@ All significant StreamCore changes are documented here.
 
 This project is still in alpha; stable release guarantees and migration automation are not yet available.
 
+## [0.8.0-alpha] — 2026-10-19
+
+### Fixed
+- Permit dynamic style attributes under production CSP; previously pointermove
+  CSSOM updates worked but HTML reconstruction rejected saved geometry.
+- Permit Blob images for the actual FFmpeg preview.
+- Separate transform controls from media stacking, opacity and animation.
+- Replace overlapping tiny-logo grips with independent outward 44px targets.
+- Expose off-frame editing controls and use the displayed content rectangle.
+- Preserve stable DOM, last-frame geometry, cancellation and save response state.
+- Use Pointer Events exclusively where supported, with legacy-only fallbacks.
+
+### Added
+- A pure, testable transform engine with opposite-corner anchoring and rAF paint.
+- 1920×1080 landscape output, with existing geometry preserved on preset changes.
+- 0.1% minimum media/text size, synchronized across API and renderer.
+- Real browser mouse/touch/pen tests against production CSP, API and SQLite;
+  decoded FFmpeg pixel comparisons in all four output presets.
+- Browser interaction gates in both validation and release workflows.
+
+### Compatibility and rollout
+- Existing databases and stored scene geometry are preserved.
+- Asset query versions are 0.8.0 to invalidate cached editor code/styles.
+- Physical Android/WebView and live production rollout remain unverified.
+- Main does not trigger unattended installation: the updater requires a stable
+  published Release and defaults to postponing updates during active streams.
+
 ## [0.7.3-alpha] — 2026-10-19
 
 ### Fixed

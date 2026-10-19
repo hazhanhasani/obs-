@@ -1,16 +1,14 @@
 
 /* StreamCore visual scene composer. Editor preview is 16:9 and static. */
 .scene-grid{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(285px,0.85fr);gap:20px}
-.scene-canvas{width:100%;aspect-ratio:16/9;position:relative;overflow:hidden;background:#000;border:1px solid #435368;border-radius:12px;direction:ltr;touch-action:none;user-select:none}
+.scene-canvas{width:100%;aspect-ratio:16/9;position:relative;overflow:visible;background:#000;outline:1px solid #435368;border-radius:0;direction:ltr;touch-action:none;user-select:none}
 .scene-canvas>img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
 .scene-test-bars{position:absolute;inset:0;background:linear-gradient(90deg,#d7d7d7 0 14.28%,#f6ed28 14.28% 28.56%,#23e6e6 28.56% 42.84%,#31e52e 42.84% 57.12%,#d842d8 57.12% 71.4%,#de3e3e 71.4% 85.68%,#2c4ddb 85.68% 100%);opacity:.25}
 .scene-items{position:absolute;inset:0;touch-action:none}
-.scene-item{position:absolute;border:1px solid #c1d3ea;cursor:grab;touch-action:none;overflow:visible;box-shadow:0 4px 16px #0008;background:#16273955}
-.scene-item.selected{border:2px solid #ff772a;box-shadow:0 0 0 1px #0a111c,0 3px 18px #ff6a2566}
+.scene-item{position:absolute;border:0;outline:1px solid #c1d3ea;cursor:grab;touch-action:none;overflow:visible;box-shadow:0 4px 16px #0008;background:#16273955}
+.scene-item.selected{outline:2px solid #ff772a;box-shadow:0 0 0 1px #0a111c,0 3px 18px #ff6a2566}
 .scene-item:active{cursor:grabbing}
 .scene-item img{display:block;width:100%;height:100%;pointer-events:none}
-.scene-handle{position:absolute;right:-18px;bottom:-18px;width:36px;height:36px;background:transparent;border:0;border-radius:50%;cursor:nwse-resize;touch-action:none;z-index:5;box-shadow:none;display:grid;place-items:center}
-.scene-handle::after{content:"";display:block;width:14px;height:14px;box-sizing:border-box;border:2px solid #fff;border-radius:5px;background:#ff661d;box-shadow:0 1px 7px #0009;pointer-events:none}
 .scene-item-name{position:absolute;top:3px;left:3px;background:#0a101acc;color:white;border-radius:4px;padding:1px 5px;font-size:9px}
 .scene-video-chip{position:absolute;top:4px;right:5px;background:#101722cc;color:white;font-size:9px;border-radius:4px;padding:3px}
 .scene-panel-row{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin-bottom:15px}
@@ -65,10 +63,8 @@
 .scene-size-presets{display:flex;gap:8px;direction:ltr}
 .scene-size-presets .mini-action{min-width:48px}
 .scene-canvas.scene-gesturing{border-color:#435368;box-shadow:none}
-.scene-item .scene-handle{width:36px;height:36px;right:-18px;bottom:-18px;box-sizing:border-box;touch-action:none}
 .scene-item,.scene-item *,.scene-items{-webkit-user-select:none;user-select:none;touch-action:none}
 @media(max-width:620px){
-  .scene-item .scene-handle{width:42px;height:42px;right:-21px;bottom:-21px;border-radius:50%}
   .scene-mobile-toolbar{align-items:stretch;flex-direction:column}
   .scene-size-presets .mini-action{min-width:56px;min-height:38px}
   .scene-item.selected{outline:2px solid #ff8b47;outline-offset:-2px}
@@ -79,7 +75,6 @@
 .scene-item img{border-radius:3px}
 .scene-gesturing .scene-item.selected{border-color:#ff7b3f}
 .scene-handle:focus-visible{outline:2px solid #fff;outline-offset:0}
-.scene-handle::after{transition:transform 120ms ease}
 .scene-gesturing .scene-handle::after{transform:scale(1.12)}
 
 /* 0.5.4 — the server-encoded frame is the authoritative source of scene pixels. */
@@ -130,44 +125,26 @@
   .scene-render-image{max-width:100%}
 }
 
-/* v0.7.2 — four independent, touch-friendly OBS-inspired corner controls. */
-.scene-item:not(.selected) .scene-handle{opacity:0;pointer-events:none}
-.scene-item.selected .scene-handle{opacity:1;pointer-events:auto}
-.scene-handle-nw{left:-18px;top:-18px;right:auto;bottom:auto;cursor:nwse-resize}
-.scene-handle-ne{left:auto;top:-18px;right:-18px;bottom:auto;cursor:nesw-resize}
-.scene-handle-sw{left:-18px;top:auto;right:auto;bottom:-18px;cursor:nesw-resize}
-.scene-handle-se{left:auto;top:auto;right:-18px;bottom:-18px;cursor:nwse-resize}
-.scene-canvas.scene-gesturing .scene-item.selected{outline:1px solid #ff893e}
-.scene-handle{touch-action:none}
-.scene-handle::after{width:15px;height:15px}
-
-/* v0.7.3 — CSS specificity regression fix.
-   Historical .scene-item .scene-handle rules (including the 620px media rule)
-   overrode .scene-handle-{nw,ne,sw,se}, putting every grip at bottom-right.
-   These attribute-qualified selectors deliberately outrank BOTH defaults. */
-.scene-item .scene-handle[data-resize-corner="nw"]{
-  top:-18px;left:-18px;right:auto;bottom:auto;cursor:nwse-resize;
-}
-.scene-item .scene-handle[data-resize-corner="ne"]{
-  top:-18px;right:-18px;left:auto;bottom:auto;cursor:nesw-resize;
-}
-.scene-item .scene-handle[data-resize-corner="sw"]{
-  bottom:-18px;left:-18px;top:auto;right:auto;cursor:nesw-resize;
-}
-.scene-item .scene-handle[data-resize-corner="se"]{
-  bottom:-18px;right:-18px;top:auto;left:auto;cursor:nwse-resize;
-}
-@media(max-width:620px){
-  .scene-item .scene-handle[data-resize-corner="nw"]{
-    top:-21px;left:-21px;right:auto;bottom:auto;
-  }
-  .scene-item .scene-handle[data-resize-corner="ne"]{
-    top:-21px;right:-21px;left:auto;bottom:auto;
-  }
-  .scene-item .scene-handle[data-resize-corner="sw"]{
-    bottom:-21px;left:-21px;top:auto;right:auto;
-  }
-  .scene-item .scene-handle[data-resize-corner="se"]{
-    bottom:-21px;right:-21px;top:auto;left:auto;
-  }
-}
+/* Transform controls are a separate, opaque UI plane. Media stacking and
+   opacity never change when selecting a layer. Targets extend OUTWARD into
+   disjoint quadrants, so even a sub-percent logo has four usable controls. */
+.scene-workspace{padding:44px;background:#0b1420;border-radius:8px;overflow:visible}
+.scene-canvas{border:0;border-radius:0;overflow:visible}
+.scene-item{box-sizing:border-box}
+.scene-transform{position:absolute;z-index:30;pointer-events:none;outline:2px solid #ff772a;touch-action:none}
+.scene-handle{position:absolute;width:44px;height:44px;box-sizing:border-box;display:grid;
+  place-items:center;background:transparent;border:0;border-radius:0;touch-action:none;
+  pointer-events:auto;z-index:1}
+.scene-handle::after{content:"";position:absolute;width:15px;height:15px;
+  box-sizing:border-box;border:2px solid #fff;border-radius:4px;background:#ff661d;
+  box-shadow:0 1px 7px #0009;pointer-events:none}
+.scene-handle[data-resize-corner="nw"]{right:100%;bottom:100%;left:auto;top:auto;cursor:nwse-resize}
+.scene-handle[data-resize-corner="ne"]{left:100%;bottom:100%;right:auto;top:auto;cursor:nesw-resize}
+.scene-handle[data-resize-corner="sw"]{right:100%;top:100%;left:auto;bottom:auto;cursor:nesw-resize}
+.scene-handle[data-resize-corner="se"]{left:100%;top:100%;right:auto;bottom:auto;cursor:nwse-resize}
+.scene-handle[data-resize-corner="nw"]::after{right:0;bottom:0}
+.scene-handle[data-resize-corner="ne"]::after{left:0;bottom:0}
+.scene-handle[data-resize-corner="sw"]::after{right:0;top:0}
+.scene-handle[data-resize-corner="se"]::after{left:0;top:0}
+.scene-item-name,.scene-video-chip,.scene-base-image,.scene-test-bars{pointer-events:none}
+.scene-gesturing .scene-handle::after{transform:none}

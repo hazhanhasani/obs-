@@ -136,3 +136,9 @@ class PortraitSceneAPITests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class SmallBoundsAndFullHDTests(unittest.TestCase):
+    def test_small_logo_and_landscape_fullhd(self):
+        self.assertEqual(canvas_size('landscape_fullhd'), (1920, 1080))
+        bounds = layer_bounds(dict(x=-2.5, y=101.2, w=.1, h=.1), 1920, 1080)
+        self.assertEqual((bounds.x, bounds.width, bounds.height), (-48, 2, 2))

@@ -7,7 +7,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const {test} = require("node:test");
 
-function harness({canvasWidth=1000,canvasHeight=562.5}={}) {
+function harness({canvasWidth=1000,canvasHeight=562.5,pointerEvents=true}={}) {
   const elements = new Map();
   class Element {
     constructor(id) {
@@ -27,7 +27,7 @@ function harness({canvasWidth=1000,canvasHeight=562.5}={}) {
     dispatch(type, payload) {
       const event = {type, target:this, pointerId:1, pointerType:"touch", button:0,
         clientX:200, clientY:120, preventDefault() {}, ...payload};
-      return this.listeners.get(type)?.(event);
+      return this.listeners.get(type)?.(event) ?? (this.id==="scene-items"?window.listeners.get(type)?.(event):undefined);
     }
     setPointerCapture(id) {this.captured=id;}
     hasPointerCapture(id) {return this.captured===id;}
@@ -37,7 +37,7 @@ function harness({canvasWidth=1000,canvasHeight=562.5}={}) {
       return null;
     }
     querySelectorAll(selector) {
-      if(selector===".scene-item" || selector===".scene-list-row") {
+      if(selector===".scene-item" || selector===".scene-list-row" || selector.startsWith("[data-layer=")) {
         return this.sceneLayer?[this.sceneLayer]:[];
       }
       return [];
@@ -56,8 +56,8 @@ function harness({canvasWidth=1000,canvasHeight=562.5}={}) {
   };
   const root=document.getElementById("scene-items");
   root.sceneLayer = {dataset:{layer:"layer_logo",selectLayer:"layer_logo"},
-    classList:{toggle(){}},style:{}};
-  const window={listeners:new Map(),StreamCoreScene:null,
+    classList:{toggle(){},remove(){}},style:{}};
+  const window={PointerEvent:pointerEvents?function(){}:undefined,listeners:new Map(),StreamCoreScene:null,
     addEventListener(event,handler){this.listeners.set(event,handler);},
     dispatch(type,payload){
       const event={type,pointerId:1,pointerType:"touch",button:0,
@@ -65,6 +65,7 @@ function harness({canvasWidth=1000,canvasHeight=562.5}={}) {
       return this.listeners.get(type)?.(event);
     }
   };
+  window.StreamCoreTransform=require("../dashboard/static/scene-transform.js");
   vm.runInNewContext(
     fs.readFileSync(path.join(__dirname,"../dashboard/static/scene-editor.js"),"utf8"),
     {document,window,console,Math,Date,Number,String,JSON,Promise}
@@ -112,7 +113,8 @@ test("touch resize is retained after finger is lifted",async()=>{
   assert.equal(h.document.getElementById("scene-w").value,40);
   assert.equal(h.document.getElementById("scene-h").value,35);
   h.root.dispatch("pointerup",{clientX:350,clientY:176.25});
-  assert.match(h.root.innerHTML,/width:40%;height:35%/,"final redraw must use updated geometry");
+  assert.equal(h.document.getElementById("scene-w").value,40);
+  assert.equal(h.document.getElementById("scene-h").value,35);
   assert.equal(h.root.captured,null);
   assert.equal(h.document.getElementById("scene-save").disabled,false);
   await h.save();
@@ -125,7 +127,8 @@ test("touch move retains position and never resets dimensions",async()=>{
   h.root.dispatch("pointerdown",{target:h.surface,clientX:200,clientY:120});
   h.root.dispatch("pointermove",{clientX:300,clientY:176.25});
   h.root.dispatch("pointerup",{clientX:300,clientY:176.25});
-  assert.match(h.root.innerHTML,/left:20%;top:25%;width:25%;height:25%/);
+  assert.equal(h.root.sceneLayer.style.left,"20%");
+  assert.equal(h.root.sceneLayer.style.top,"25%");
   await h.save();
   assert.equal(h.saved().layers[0].x,20);
   assert.equal(h.saved().layers[0].y,25);
@@ -137,9 +140,11 @@ test("pointer cancellation retains last confirmed size",async()=>{
   h.root.dispatch("pointerdown",{target:h.handle,clientX:200,clientY:120});
   h.root.dispatch("pointermove",{clientX:250,clientY:148.125});
   h.root.dispatch("pointercancel",{clientX:250,clientY:148.125});
-  assert.match(h.root.innerHTML,/width:30%;height:30%/);
+  assert.equal(h.document.getElementById("scene-w").value,30);
+  assert.equal(h.document.getElementById("scene-h").value,30);
   h.root.dispatch("lostpointercapture",{pointerId:1});
-  assert.match(h.root.innerHTML,/width:30%;height:30%/);
+  assert.equal(h.document.getElementById("scene-w").value,30);
+  assert.equal(h.document.getElementById("scene-h").value,30);
 });
 
 test("text layer can be written, styled and saved without clearing media layers", async()=>{
@@ -178,7 +183,8 @@ test("overview polling during active resize never recreates the touched layer",a
   assert.equal(h.root.innerHTML,initial,"periodic refresh must never rebuild active gesture DOM");
   assert.equal(h.root.captured,1);
   h.root.dispatch("pointerup",{clientX:350,clientY:176.25});
-  assert.match(h.root.innerHTML,/width:40%;height:35%/);
+  assert.equal(h.document.getElementById("scene-w").value,40);
+  assert.equal(h.document.getElementById("scene-h").value,35);
   await h.save();
   assert.equal(h.saved().layers[0].w,40);
   assert.equal(h.saved().layers[0].h,35);
@@ -189,7 +195,8 @@ test("window gesture fallback resizes when pointer leaves canvas",async()=>{
   h.root.dispatch("pointerdown",{target:h.handle,clientX:200,clientY:120});
   h.window.dispatch("pointermove",{clientX:300,clientY:176.25});
   h.window.dispatch("pointerup",{clientX:300,clientY:176.25});
-  assert.match(h.root.innerHTML,/width:35%;height:35%/);
+  assert.equal(h.document.getElementById("scene-w").value,35);
+  assert.equal(h.document.getElementById("scene-h").value,35);
   await h.save();
   assert.equal(h.saved().layers[0].w,35);
   assert.equal(h.saved().layers[0].h,35);
@@ -214,7 +221,8 @@ test("touch cancellation retains geometry and versioned assets",async()=>{
 test("size preset is retained through API save",async()=>{
   const h=harness();await h.open();
   h.document.getElementById("scene-preset-50").dispatch("click",{});
-  assert.match(h.root.innerHTML,/width:50%;height:28%/);
+  assert.equal(h.document.getElementById("scene-w").value,50);
+  assert.equal(h.document.getElementById("scene-h").value,28);
   await h.save();
   assert.equal(h.saved().layers[0].w,50);
   assert.equal(h.saved().layers[0].h,28);
@@ -227,7 +235,8 @@ test("narrow 390px Android viewport retains correct percentages",async()=>{
   h.root.dispatch("pointermove",{clientX:209,clientY:102});
   h.window.dispatch("pointerup",{clientX:209,clientY:102});
   // 39/390 = 10% horizontal; 22/219.375 ~ 10% vertical.
-  assert.match(h.root.innerHTML,/width:35%;height:35%/);
+  assert.equal(h.document.getElementById("scene-w").value,35);
+  assert.equal(h.document.getElementById("scene-h").value,35);
   await h.save();
   assert.equal(h.saved().layers[0].w,35);
   assert.equal(h.saved().layers[0].h,35);
@@ -240,7 +249,8 @@ test("unexpected capture loss must retain the active Android drag",async()=>{
   h.root.dispatch("lostpointercapture",{pointerId:1});
   h.window.dispatch("pointermove",{pointerId:1,clientX:209,clientY:102});
   h.window.dispatch("pointerup",{pointerId:1,clientX:209,clientY:102});
-  assert.match(h.root.innerHTML,/width:35%;height:35%/);
+  assert.equal(h.document.getElementById("scene-w").value,35);
+  assert.equal(h.document.getElementById("scene-h").value,35);
 });
 
 test("size preset preserves intentional off-canvas positioning",async()=>{
@@ -264,7 +274,7 @@ test("small mobile logo is not hidden by the resize handle or canvas highlight",
   assert.match(css,/\.scene-item\{[^}]*overflow:visible;/);
   // 14px visible dot, while the transparent 42px mobile hit area is large enough.
   assert.match(css,/\.scene-handle::after\{[^}]*width:15px;height:15px/);
-  assert.match(css,/\.scene-item \.scene-handle\{width:42px;height:42px;/);
+  assert.match(css,/\.scene-handle\{position:absolute;width:44px;height:44px;/);
   assert.match(html,/scene-editor\.css\?v=[0-9]+\.[0-9]+\.[0-9]+/);
   assert.match(html,/scene-editor\.js\?v=[0-9]+\.[0-9]+\.[0-9]+/);
 });
@@ -437,7 +447,8 @@ test("off-canvas move persists negative and over-100 coordinates",async()=>{
   await h.save();
   assert.equal(h.saved().layers[0].x,-90);
   assert.equal(h.saved().layers[0].y,-85);
-  assert.match(h.root.innerHTML,/left:-90%;top:-85%/);
+  assert.equal(h.root.sceneLayer.style.left,"-90%");
+  assert.equal(h.root.sceneLayer.style.top,"-85%");
 });
 test("numeric transform supports sub-percent changes and reset to center",async()=>{
   const h=harness();await h.open();
@@ -458,18 +469,18 @@ test("all four independent handles exist for media and text",async()=>{
     assert.match(h.root.innerHTML,new RegExp('data-resize-corner="'+corner+'"'));
   h.document.getElementById("scene-add-text").dispatch("click",{});
   for(const corner of ["nw","ne","sw","se"])
-    assert.equal((h.root.innerHTML.match(new RegExp('data-resize-corner="'+corner+'"',"g"))||[]).length,2);
+    assert.equal((h.root.innerHTML.match(new RegExp('data-resize-corner="'+corner+'"',"g"))||[]).length,1);
 });
-test("resizing across original left/top keeps 5% minimum rather than flipping",async()=>{
+test("resizing across original left/top keeps 0.1% minimum rather than flipping",async()=>{
   const h=harness();await h.open();
   h.root.dispatch("pointerdown",{target:cornerTarget("nw"),clientX:200,clientY:120});
   h.window.dispatch("pointermove",{clientX:1200,clientY:900});
   h.window.dispatch("pointerup",{clientX:1200,clientY:900});
   await h.save();
-  assert.equal(h.saved().layers[0].w,5);
-  assert.equal(h.saved().layers[0].h,5);
-  assert.equal(h.saved().layers[0].x,30);
-  assert.equal(h.saved().layers[0].y,35);
+  assert.equal(h.saved().layers[0].w,0.1);
+  assert.equal(h.saved().layers[0].h,0.1);
+  assert.equal(h.saved().layers[0].x,34.9);
+  assert.equal(h.saved().layers[0].y,39.9);
 });
 
 test("northwest resize at maximum 200% keeps far edges anchored",async()=>{
@@ -509,7 +520,7 @@ for(const [corner,expected] of [
   ["se",{x:10,y:15,w:30,h:30}]
 ]){
   test("legacy Android touch resize "+corner+" persists on release",async()=>{
-    const h=harness();await h.open();
+    const h=harness({pointerEvents:false});await h.open();
     h.root.dispatch("touchstart",{target:cornerTarget(corner),
       changedTouches:[{identifier:7,clientX:200,clientY:120}]});
     h.window.dispatch("touchmove",{changedTouches:[{identifier:8,clientX:800,clientY:900}]});
@@ -522,11 +533,24 @@ for(const [corner,expected] of [
   });
 }
 test("legacy desktop mouse gestures persist",async()=>{
-  const h=harness();await h.open();
+  const h=harness({pointerEvents:false});await h.open();
   h.root.dispatch("mousedown",{target:h.surface,button:0,clientX:200,clientY:120});
   h.window.dispatch("mousemove",{clientX:300,clientY:176.25});
   h.window.dispatch("mouseup",{clientX:300,clientY:176.25});
   await h.save();
   assert.equal(h.saved().layers[0].x,20);
   assert.equal(h.saved().layers[0].y,25);
+});
+
+test('capture-lost pointer ID reuse begins a new gesture baseline',async()=>{
+  const h=harness();await h.open();
+  h.root.dispatch('pointerdown',{target:cornerTarget('se'),clientX:200,clientY:120});
+  h.window.dispatch('pointermove',{clientX:250,clientY:148.125});
+  h.root.dispatch('lostpointercapture',{pointerId:1});
+  h.root.dispatch('pointerdown',{target:cornerTarget('nw'),clientX:200,clientY:120});
+  h.window.dispatch('pointermove',{clientX:250,clientY:148.125});
+  h.window.dispatch('pointerup',{clientX:250,clientY:148.125});
+  await h.save();
+  assert.equal(h.saved().layers[0].w,25);
+  assert.equal(h.saved().layers[0].x,15);
 });

@@ -1,60 +1,60 @@
-# Scene geometry — v0.7.0-alpha
+# Scene geometry and interactions
 
-StreamCore uses one normalized 1280 × 720, top-left-origin bounding box per
-layer: `x, y, w, h` are percentages of the **output canvas**, not the
-source file dimensions and not percentages of the mobile screen.
+`x`, `y`, `w`, `h` are percentages of the active **output canvas**, measured
+from its top-left corner. They are never percentages of the source image or
+phone screen. Media and text use the same bounding-box contract.
 
-The canonical Python geometry lives in
-[`dashboard/scene_geometry.py`](../dashboard/scene_geometry.py).
+| Preset | Output pixels |
+| --- | --- |
+| landscape | 1280 × 720 |
+| landscape_fullhd | 1920 × 1080 |
+| portrait | 720 × 1280 |
+| portrait_fullhd | 1080 × 1920 |
 
-| StreamCore fit | Equivalent OBS bounds behavior | Browser preview | FFmpeg render |
-| --- | --- | --- | --- |
-| Contain | Scale to inner bounds | `object-fit: contain` | Aspect-preserving scale + transparent pad |
-| Cover | Scale to outer bounds | `object-fit: cover` | Aspect-preserving scale + central crop |
-| Stretch | Stretch to bounds | `object-fit: fill` | Explicit width × height scaling |
+Changing presets preserves all stored layer percentages. Existing channels
+without a setting default to landscape. SQLite INTEGER-affinity columns
+already accept fractional numeric values; no destructive migration is needed.
 
-The output pixel width and height are rounded down to even values for H.264
-compatibility. A 90%-wide, 90%-high layer at X=10%, Y=10% becomes:
-`x=128, y=72, w=1152, h=648`.
+The centralized browser math is `dashboard/static/scene-transform.js`;
+FFmpeg conversion and validation are in `dashboard/scene_geometry.py`.
+Keep their safety limits synchronized: X/Y -200..200%, W/H 0.1..200%, editor
+precision 0.1%. These are resource limits, **not confinement to the frame**.
+FFmpeg rounds dimensions down to even pixels, with a minimum 2px raster.
+Positions are rounded to output pixels; 4:2:0 can introduce a further 1px
+alignment difference. Geometry comparison allows at most 2 output pixels.
 
-An optional dashed Safe Area overlay marks approximate 5% left/right and
-8% top/bottom margins. It does **not** modify the encoded stream or crop
-the content. It is a visual placement guide.
+| Corner | Moving edges | Fixed corner |
+| --- | --- | --- |
+| NW | Left, top | Bottom-right |
+| NE | Right, top | Bottom-left |
+| SW | Left, bottom | Top-right |
+| SE | Right, bottom | Top-left |
 
-These bounds modes are modeled after the **concepts** in OBS's publicly
-documented `obs_transform_info.bounds_type`. This module is an independent
-Python implementation and does not copy OBS's GPL scene implementation.
+Width and height change independently. Crossing the anchor stops at the
+minimum size rather than flipping the source. A selected source has one
+independent control plane. Four outward 44px targets cannot overlap even for
+a tiny logo; controls remain opaque and above sources without changing their
+composition order. Drag the orange corner or the transparent area immediately
+outside it. Drag the source body to move. Numeric X/Y/Width/Height controls
+allow precise recovery of fully off-screen sources, as does Center layer.
 
-**Important**: Cropping individual source edges, arbitrary-angle rotation,
-pixel-perfect font measurement, multi-canvas portrait outputs and timecoded
-program/draft transitions are not yet implemented. Use `رندر خروجی قبل از
-ذخیره` to inspect the exact output of FFmpeg. An editable browser layout
-remains an approximation of its media pixels.
+The padded workspace displays off-frame editing content. Published output
+is clipped to the video frame by FFmpeg, without shrinking source geometry.
+Safe Area is a composition guide and never changes source coordinates.
 
-Saving changes may restart the channel compositor; back up and use an
-appropriate maintenance window.
+| Fit | Browser | FFmpeg |
+| --- | --- | --- |
+| contain | object-fit: contain | Aspect-preserving scale + transparent pad |
+| cover | object-fit: cover | Aspect-preserving scale + center crop |
+| stretch | object-fit: fill | Independent width/height scaling |
 
+The persistent root captures pointers; window listeners continue a drag
+outside the frame. Pointer Events and legacy input are mutually exclusive.
+Cancellation, blur and page hiding retain the last valid draft and clean up
+capture. They never implicitly save or restart a publisher. Polling cannot
+replace layer DOM during an active gesture. Releasing commits local geometry;
+**Save and apply** persists it and may restart that channel's compositor.
+Use Render output to inspect actual FFmpeg pixels without publishing.
 
-## Off-canvas scene items and four-corner Transform (v0.7.2)
-
-Canvas-relative positions **need not be in the output viewport**. We store
--200..200% for X/Y and 5..200% for width/height (0.1% editor precision);
-this bound is a resource safety cap, not an alignment rule.
-
-For a 1280×720 landscape channel:
-- X=-10%, Y=40%, W=40%, H=20% yields an overlay 512×144px
-  placed at (-128, 288); the compositor clips its left 128 pixels.
-- X=150%, Y=110% places the entire source off-screen while retaining the
-  transform and allowing later entry/animation.
-- A four-corner gesture anchors the opposite edges of the initial source box.
-- The **مرکزچین لایه** action recovers fully hidden sources. Exact numeric
-  fields can also position them outside or inside the frame.
-- Output is clipped by FFmpeg's overlay compositor, not resized to 0..100%.
-
-The static CSS editor uses the same rectangle percentages, while the FFmpeg
-preview is authoritative for transparency, filter timing and source blending.
-
-Keep stream RTMP keys secret. These transforms are applied **before**
-sending the H.264/AAC stream to Telegram, so Telegram has no control over
-scene-item position. See official Telegram RTMP documentation:
-https://core.telegram.org/method/phone.getGroupCallStreamRtmpUrl
+For evidence, tests and deployment limitations see
+[the investigation](SCENE_TRANSFORM_INVESTIGATION.md).

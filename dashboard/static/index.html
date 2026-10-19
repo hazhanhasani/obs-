@@ -8,10 +8,11 @@
   <title>StreamCore | کنترل پخش زنده</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link rel="stylesheet" href="/assets/styles.css?v=0.7.2">
-  <link rel="stylesheet" href="/assets/scene-editor.css?v=0.7.3">
+  <link rel="stylesheet" href="/assets/scene-editor.css?v=0.8.0">
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.15/dist/hls.min.js" defer></script>
   <script src="/assets/app.js?v=0.7.2" defer></script>
-  <script src="/assets/scene-editor.js?v=0.7.3" defer></script>
+  <script src="/assets/scene-transform.js?v=0.8.0" defer></script>
+  <script src="/assets/scene-editor.js?v=0.8.0" defer></script>
 </head>
 <body>
 <section id="login-page" class="login-page" hidden>
@@ -151,6 +152,7 @@
             <div><label class="field-label" for="scene-canvas-preset">قالب خروجی کانال</label>
             <select id="scene-canvas-preset" class="field">
               <option value="landscape">افقی 16:9 — 1280×720</option>
+              <option value="landscape_fullhd">افقی 16:9 — 1920×1080</option>
               <option value="portrait">عمودی 9:16 — 720×1280 (بهینه)</option>
               <option value="portrait_fullhd">عمودی 9:16 — 1080×1920 (سنگین)</option>
             </select></div>
@@ -170,12 +172,14 @@
         <div class="scene-grid" style="margin-top:18px">
           <div class="panel">
             <div class="panel-heading"><h3 id="scene-ratio-heading">پیش‌نمایش چیدمان ۱۶:۹</h3><span class="caption-mini">Drag / Resize · 4-corner touch</span></div>
+            <div class="scene-workspace">
             <div class="scene-canvas" id="scene-canvas">
               <div class="scene-test-bars" id="scene-colorbars"></div>
               <img id="scene-base-image" alt="پیش‌نمایش پس‌زمینه" hidden>
               <div class="scene-items" id="scene-items" aria-label="لایه‌های قابل جابه‌جایی"></div>
               <div class="scene-safe-area" id="scene-safe-area" hidden aria-hidden="true"></div>
               <div class="scene-draft-indicator" id="scene-draft-indicator" hidden aria-live="polite">● پیش‌نمایش منتشرنشده — برای مشاهده در پخش زنده ذخیره کنید</div>
+            </div>
             </div>
             <div class="scene-mobile-toolbar">
               <span id="scene-gesture-status" class="scene-gesture-status" aria-live="off">لایه را آزادانه بکش؛ از هر چهار گوشه تغییر اندازه بده. خروج از قاب مجاز است.</span>
@@ -206,8 +210,8 @@
               <div class="scene-property-grid">
                 <div><label class="field-label" for="scene-x">موقعیت افقی X (%)</label><input id="scene-x" class="field" type="number" min="-200" max="200" step="0.1"></div>
                 <div><label class="field-label" for="scene-y">موقعیت عمودی Y (%)</label><input id="scene-y" class="field" type="number" min="-200" max="200" step="0.1"></div>
-                <div><label class="field-label" for="scene-w">عرض (%)</label><input id="scene-w" class="field" type="number" min="5" max="200" step="0.1"></div>
-                <div><label class="field-label" for="scene-h">ارتفاع (%)</label><input id="scene-h" class="field" type="number" min="5" max="200" step="0.1"></div>
+                <div><label class="field-label" for="scene-w">عرض (%)</label><input id="scene-w" class="field" type="number" min="0.1" max="200" step="0.1"></div>
+                <div><label class="field-label" for="scene-h">ارتفاع (%)</label><input id="scene-h" class="field" type="number" min="0.1" max="200" step="0.1"></div>
                 <div><label class="field-label" for="scene-opacity">شفافیت (%)</label><input id="scene-opacity" class="field" type="number" min="10" max="100" step="1"></div>
                 <div id="scene-fit-container"><label class="field-label" for="scene-fit">نحوه نمایش تصویر</label><select id="scene-fit" class="field"><option value="contain">نمایش کامل (Contain)</option><option value="cover">پرکردن کادر (Cover)</option><option value="stretch">کشیدن دقیق در کادر (Stretch)</option></select></div>
                 <div><label class="field-label" for="scene-effect">افکت ورود / نمایش</label><select id="scene-effect" class="field">

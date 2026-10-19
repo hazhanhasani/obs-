@@ -1,5 +1,5 @@
 "use strict";
-/* Scene editor: layout preview uses authenticated media posters; live encoder
+/* Scene editor: normalized transforms use scene-transform.js; live encoder
    output is viewed in the dashboard after saving. Works on touch and mouse. */
 (function(){
   const $=(id)=>document.getElementById(id);
@@ -12,7 +12,7 @@
   let draftVersion=0, actualPreviewUrl=null, previewRendering=false;
   let media=[],loadSequence=0;
   const fieldNames=["x","y","w","h","opacity"];
-  const MIN_POSITION=-200,MAX_POSITION=200,MIN_SIZE=5,MAX_SIZE=200;
+  const {transform:transformFromGesture,MIN_POSITION,MAX_POSITION,MIN_SIZE,MAX_SIZE}=window.StreamCoreTransform;
   const tenth=(v)=>Math.round(v*10)/10;
   const cornerHandles=()=>["nw","ne","sw","se"].map(corner=>
     '<span class="scene-handle scene-handle-'+corner+'" data-resize-corner="'+corner+
@@ -20,26 +20,25 @@
   function applyTransform(item,geometry){
     for(const key of ["x","y","w","h"])item[key]=tenth(geometry[key]);
   }
-  // Keep the opposite edges anchored when dragging each corner (OBS-style).
-  // Do not clamp to viewport. Server and FFmpeg clip only the *output*.
-  function transformFromGesture(initial,corner,dx,dy){
-    if(!corner)return {x:clamp(tenth(initial.x+dx),MIN_POSITION,MAX_POSITION),
-      y:clamp(tenth(initial.y+dy),MIN_POSITION,MAX_POSITION),
-      w:initial.w,h:initial.h};
-    const movingLeft=corner.includes("w"),movingTop=corner.includes("n");
-    const left=initial.x,right=initial.x+initial.w;
-    const top=initial.y,bottom=initial.y+initial.h;
-    // Both size and position limits apply to the MOVING edge. If we clamp
-    // width only after computing x, a hard NW/SW drag shifts the opposite edge.
-    const x=movingLeft?clamp(tenth(left+dx),
-      Math.max(MIN_POSITION,right-MAX_SIZE),Math.min(MAX_POSITION,right-MIN_SIZE)):left;
-    const y=movingTop?clamp(tenth(top+dy),
-      Math.max(MIN_POSITION,bottom-MAX_SIZE),Math.min(MAX_POSITION,bottom-MIN_SIZE)):top;
-    const w=movingLeft?tenth(right-x):clamp(tenth(initial.w+dx),MIN_SIZE,MAX_SIZE);
-    const h=movingTop?tenth(bottom-y):clamp(tenth(initial.h+dy),MIN_SIZE,MAX_SIZE);
-    return {x,y,w:clamp(w,MIN_SIZE,MAX_SIZE),h:clamp(h,MIN_SIZE,MAX_SIZE)};
+  let visualFrame=null;
+  function state(next){$("scene-items").dataset.transformState=next;}
+  function paintGeometry(){
+    visualFrame=null;
+    const item=getLayer(drag?.id||selected);if(!item)return;
+    const root=$("scene-items");
+    for(const node of root.querySelectorAll('[data-layer="'+item.layer_id+'"]')){
+      Object.assign(node.style,{left:item.x+"%",top:item.y+"%",width:item.w+"%",height:item.h+"%"});
+    }
   }
-  const outputDimensions={landscape:[1280,720],portrait:[720,1280],portrait_fullhd:[1080,1920]};
+  function scheduleGeometry(){
+    if(!window.requestAnimationFrame){paintGeometry();return;}
+    if(visualFrame===null)visualFrame=window.requestAnimationFrame(paintGeometry);
+  }
+  function flushGeometry(){
+    if(visualFrame!==null)window.cancelAnimationFrame?.(visualFrame);
+    paintGeometry();
+  }
+  const outputDimensions={landscape:[1280,720],landscape_fullhd:[1920,1080],portrait:[720,1280],portrait_fullhd:[1080,1920]};
   const outputSize=()=>outputDimensions[canvasPreset]||outputDimensions.landscape;
   function applyCanvas(){
     const [w,h]=outputSize(),portrait=h>w;
@@ -71,7 +70,7 @@
     dirty=true;
     $("scene-draft-indicator").hidden=false;
     invalidateActualPreview();
-    $("scene-save").disabled=false;
+    $("scene-save").disabled=saving;
     $("scene-note").textContent="تغییرات ذخیره‌نشده‌اند. ابتدا رندر واقعی را بررسی کنید، سپس ذخیره کنید.";
   }
   function resetDirty(){
@@ -115,7 +114,7 @@
       return '<div class="scene-item '+(selected===l.layer_id?"selected":"")+'" data-layer="'+safe(l.layer_id)+'" style="'+css+'" tabindex="0" role="button" aria-label="انتخاب لایه '+(i+1)+'">'
         +'<img draggable="false" src="'+poster(l.media_file)+'" style="object-fit:'+(l.fit==="stretch"?"fill":safe(l.fit))+'" alt="">'
         +(m?.kind==="video"?'<span class="scene-video-chip"><i class="bi bi-play-fill"></i> ویدئو</span>':'')
-        +'<span class="scene-item-name">'+(i+1)+'</span>'+cornerHandles()+'</div>';
+        +'<span class="scene-item-name">'+(i+1)+'</span></div>';
     });
     const textHtml=textLayers.map((l,i)=>{
       const css='left:'+l.x+'%;top:'+l.y+'%;width:'+l.w+'%;height:'+l.h+'%;opacity:'+(l.opacity/100)+';';
@@ -123,9 +122,12 @@
       const size=(l.font_size/outputSize()[0]*100).toFixed(3)+"cqw";
       return '<div class="scene-item scene-text-item '+(selected===l.layer_id?"selected":"")+'" data-layer="'+safe(l.layer_id)+'" style="'+css+'" tabindex="0" role="button" aria-label="متن '+(i+1)+'">'
         +'<span class="scene-text-content" dir="auto" style="font-size:'+size+';color:'+safe(l.color)+';text-align:'+safe(l.align)+';background:'+bg+';">'+safe(l.text)+'</span>'
-        +'<span class="scene-item-name">T'+(i+1)+'</span>'+cornerHandles()+'</div>';
+        +'<span class="scene-item-name">T'+(i+1)+'</span></div>';
     });
-    $("scene-items").innerHTML=[...mediaHtml,...textHtml].join("");
+    const current=getLayer(selected);
+    const selection=current?'<div class="scene-transform" data-layer="'+safe(selected)+'" style="left:'+current.x+'%;top:'+current.y+'%;width:'+current.w+'%;height:'+current.h+'%;">'+cornerHandles()+'</div>':"";
+    $("scene-items").innerHTML=[...mediaHtml,...textHtml,selection].join("");
+    state(selected?"selected":"idle");
     function listItem(l,i,textLayer){
       const icon=textLayer?"bi-fonts":byFile(l.media_file)?.kind==="image"?"bi-image":"bi-film";
       const label=textLayer?l.text:fileName(l.media_file);
@@ -237,6 +239,7 @@
     if(old!==media.map(x=>x.file+":"+x.kind).join(",") || !channel){fillChoices();if(channel)preview();}
   }
   function inputChanged(){
+    if(drag)return;
     const item=getLayer(selected);if(!item)return;
     for(const n of fieldNames){
       const input=$("scene-"+n),value=Number(input.value);
@@ -274,8 +277,9 @@
     });
     renderProperties();
   }
-  function select(id){if(drag){activateLayer(id);return;}selected=id;preview();}
+  function select(id){if(drag)return;selected=id;preview();}
   function changeOrder(id,delta){
+    if(drag)return;
     const collection=textLayers.some(l=>l.layer_id===id)?textLayers:layers;
     const i=collection.findIndex(l=>l.layer_id===id);
     const j=i+delta;
@@ -284,6 +288,7 @@
     select(id);markDirty();
   }
   function addLayer(){
+    if(drag)return;
     const file=$("scene-media").value,m=byFile(file);
     if(!m){toast("ابتدا از بخش رسانه‌ها فایل آپلود کنید.");return;}
     if(layers.length>=8){toast("حداکثر ۸ لایه برای هر صحنه مجاز است.");return;}
@@ -297,6 +302,7 @@
     select(id);markDirty();
   }
   function addText(){
+    if(drag)return;
     if(textLayers.length>=5){toast("حداکثر پنج لایه متن مجاز است.");return;}
     const id="text_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,7);
     textLayers.push({layer_id:id,text:"متن جدید",x:20,y:40,w:56,h:20,
@@ -358,20 +364,23 @@
     if(!channel)return;
     if(drag || saving){toast("ابتدا حرکت انگشت را تمام کنید.");return;}
     saving=true;
+    const version=draftVersion;
+    const payload=JSON.parse(JSON.stringify({base_file:baseFile||null,canvas_preset:canvasPreset,layers,text_layers:textLayers}));
     const button=$("scene-save");
     button.disabled=true;button.textContent="در حال ذخیره و اعمال...";
     try{
       const response=await api("/channels/"+encodeURIComponent(channel)+"/scene",{
-        method:"PUT",body:JSON.stringify({base_file:baseFile||null,canvas_preset:canvasPreset,layers,text_layers:textLayers})
+        method:"PUT",body:JSON.stringify(payload)
       });
       // Only report success after the API returns persisted layer geometry.
       const remote=response.scene;
       const matches=(local,stored)=>Array.isArray(stored) && local.length===stored.length
         && local.every((l,index)=>["layer_id","x","y","w","h"].every(k=>String(l[k])===String(stored[index][k])));
-      if(!remote || remote.canvas_preset!==canvasPreset || !matches(layers,remote.layers) || !matches(textLayers,remote.text_layers)){
+      if(!remote || remote.canvas_preset!==payload.canvas_preset || !matches(payload.layers,remote.layers) || !matches(payload.text_layers,remote.text_layers)){
         throw new Error("سرور اندازه لایه را مطابق درخواست ذخیره نکرد؛ وضعیت را دوباره بررسی کنید.");
       }
-      resetDirty();
+      if(version===draftVersion)resetDirty();
+      else button.disabled=false;
       recordGeometry();
       try{overview=await api("/overview");showOutputBindings();}catch(_){/* periodic poll will refresh */}
       toast("چیدمان ذخیره شد. اگر کانال روشن باشد پخش برای اعمال صحنه دوباره راه‌اندازی می‌شود.");
@@ -381,7 +390,7 @@
   // Pointer capture belongs to the persistent scene-items container, not to
   // .scene-item nodes regenerated during preview updates.
   function getCanvasSize(){
-    const rect=$("scene-canvas").getBoundingClientRect();
+    const rect=$("scene-items").getBoundingClientRect();
     return {width:rect.width,height:rect.height};
   }
   function recordGeometry(){
@@ -392,11 +401,11 @@
       "X: "+item.x+"٪  Y: "+item.y+"٪  عرض: "+item.w+"٪  ارتفاع: "+item.h+"٪";
   }
   function onPointerDown(e){
-    if(drag && drag.captureLost && e.pointerId!==drag.pointerId){
+    if(drag && (e.pointerId===drag.pointerId || (drag.captureLost && e.isPrimary!==false))){
       pointerDone({pointerId:drag.pointerId,type:"pointercancel"});
     }
     if(drag || (e.pointerType==="mouse" && e.button!==0))return;
-    const el=e.target?.closest?.(".scene-item");
+    const el=e.target?.closest?.("[data-layer]")||e.target?.closest?.(".scene-item");
     if(!el)return;
     const item=getLayer(el.dataset.layer);
     if(!item)return;
@@ -408,13 +417,20 @@
     const resize=!!corner;
     drag={
       pointerId:e.pointerId,id:item.layer_id,
-      startX:e.clientX,startY:e.clientY,
+      lastX:e.clientX,lastY:e.clientY,dx:0,dy:0,
       x:item.x,y:item.y,w:item.w,h:item.h,
       width:canvas.width,height:canvas.height,
       type:resize?"resize":"move",corner,changed:false,
       source:e.gestureSource||"pointer"
     };
-    activateLayer(item.layer_id);
+    // If selection changes, render the overlay BEFORE capture, never mid-gesture.
+    if(selected!==item.layer_id){
+      const active=drag;drag=null;selected=item.layer_id;preview();drag=active;
+    }else activateLayer(item.layer_id);
+    state(resize?"resizing":"dragging");
+    $("scene-items").querySelectorAll(".scene-item").forEach(node=>{
+      for(const cls of ["fx-fade","fx-slide-left","fx-slide-right","fx-blink"])node.classList.remove(cls);
+    });
     $("scene-canvas").classList.add("scene-gesturing");
     recordGeometry();
     // Mobile Chromium can report a lost capture after rotation/scroll,
@@ -422,23 +438,26 @@
     if(drag.source==="pointer"){
       try{$("scene-items").setPointerCapture?.(e.pointerId);}catch(_){}
     }
+    e.stopPropagation?.();
     e.preventDefault?.();
   }
   function onPointerMove(e){
     if(!drag || e.pointerId!==drag.pointerId)return;
+    // A missed release must not turn subsequent mouse/pen hover into edits.
+    if(drag.source==="pointer" && ["mouse","pen"].includes(e.pointerType) && e.buttons===0 && e.type!=="pointerup"){
+      pointerDone({pointerId:drag.pointerId,type:"pointercancel"});return;
+    }
     const l=getLayer(drag.id);if(!l)return;
     // Use the current canvas dimensions if viewport changes during a gesture.
     const current=getCanvasSize();
     const width=current.width>0?current.width:drag.width;
     const height=current.height>0?current.height:drag.height;
-    const dx=(e.clientX-drag.startX)*100/width;
-    const dy=(e.clientY-drag.startY)*100/height;
+    drag.dx+=(e.clientX-drag.lastX)*100/width;
+    drag.dy+=(e.clientY-drag.lastY)*100/height;
+    drag.lastX=e.clientX;drag.lastY=e.clientY;
     const old=[l.x,l.y,l.w,l.h];
-    applyTransform(l,transformFromGesture(drag,drag.corner,dx,dy));
-    const node=$("scene-items").querySelector('[data-layer="'+l.layer_id+'"]');
-    if(node)Object.assign(node.style,{
-      left:l.x+"%",top:l.y+"%",width:l.w+"%",height:l.h+"%"
-    });
+    applyTransform(l,transformFromGesture(drag,drag.corner,drag.dx,drag.dy));
+    scheduleGeometry();
     for(const name of ["x","y","w","h"])$("scene-"+name).value=l[name];
     recordGeometry();
     if(!drag.changed && old.some((value,i)=>value!==[l.x,l.y,l.w,l.h][i])){
@@ -451,8 +470,10 @@
   function pointerDone(e){
     if(!drag || e.pointerId!==drag.pointerId)return;
     if(e.type==="pointerup")onPointerMove(e);
+    flushGeometry();
     const completed=drag;
     drag=null;
+    state("committed");
     $("scene-canvas").classList.remove("scene-gesturing");
     const root=$("scene-items");
     if(completed.source==="pointer"){
@@ -460,7 +481,10 @@
         if(root.hasPointerCapture?.(e.pointerId))root.releasePointerCapture(e.pointerId);
       }catch(_){}
     }
-    if(completed.changed || pendingRender)preview();
+    // Keep stable layer and selection nodes on release. Deferred library updates
+    // may now rebuild, using the committed model (never stale styles).
+    if(pendingRender)preview();
+    state(selected?"selected":"idle");
   }
   function onCaptureLost(e){
     // Unexpected capture loss must NOT abort the drag on Android. Keep the
@@ -528,7 +552,7 @@
     });
     $("scene-base").addEventListener("change",e=>{baseFile=e.target.value||null;markDirty();preview();});
     $("scene-canvas-preset").addEventListener("change",e=>{
-      if(drag || saving)return;
+      if(drag){e.target.value=canvasPreset;return;}
       if(!Object.prototype.hasOwnProperty.call(outputDimensions,e.target.value))return;
       canvasPreset=e.target.value;applyCanvas();markDirty();preview();
     });
@@ -552,6 +576,7 @@
     for(const n of fieldNames)$("scene-"+n).addEventListener("change",inputChanged);
     $("scene-fit").addEventListener("change",inputChanged);
     $("scene-layer-list").addEventListener("click",e=>{
+      if(drag)return;
       const rem=e.target.closest("[data-layer-remove]");
       if(rem){layers=layers.filter(l=>l.layer_id!==rem.dataset.layerRemove);
         textLayers=textLayers.filter(l=>l.layer_id!==rem.dataset.layerRemove);
@@ -563,24 +588,24 @@
       if(down){changeOrder(down.dataset.layerDown,-1);return;}
       const row=e.target.closest("[data-select-layer]");if(row)select(row.dataset.selectLayer);
     });
-    $("scene-items").addEventListener("pointerdown",onPointerDown);
-    $("scene-items").addEventListener("pointermove",onPointerMove);
-    $("scene-items").addEventListener("pointerup",pointerDone);
-    $("scene-items").addEventListener("pointercancel",pointerDone);
-    $("scene-items").addEventListener("lostpointercapture",onCaptureLost);
-    // Legacy events are ignored while the standard pointer gesture is active.
-    // Window listeners keep a drag going even outside the video canvas.
-    $("scene-items").addEventListener("touchstart",onTouchStart,{passive:false});
-    window.addEventListener("touchmove",e=>onTouchContinue(e,false),{passive:false});
-    window.addEventListener("touchend",e=>onTouchContinue(e,true));
-    window.addEventListener("touchcancel",e=>onTouchContinue(e,true));
-    $("scene-items").addEventListener("mousedown",onMouseStart);
-    window.addEventListener("mousemove",e=>onMouseContinue(e,false));
-    window.addEventListener("mouseup",e=>onMouseContinue(e,true));
-    // Capture fallback: a finger can move beyond the layer or the whole canvas.
-    window.addEventListener("pointermove",onPointerMove);
-    window.addEventListener("pointerup",pointerDone);
-    window.addEventListener("pointercancel",pointerDone);
+    if(window.PointerEvent){
+      $("scene-items").addEventListener("pointerdown",onPointerDown);
+      $("scene-items").addEventListener("lostpointercapture",onCaptureLost);
+      window.addEventListener("pointermove",onPointerMove,{passive:false});
+      window.addEventListener("pointerup",pointerDone);
+      window.addEventListener("pointercancel",pointerDone);
+    }else{
+      $("scene-items").addEventListener("touchstart",onTouchStart,{passive:false});
+      window.addEventListener("touchmove",e=>onTouchContinue(e,false),{passive:false});
+      window.addEventListener("touchend",e=>onTouchContinue(e,true));
+      window.addEventListener("touchcancel",e=>onTouchContinue(e,true));
+      $("scene-items").addEventListener("mousedown",onMouseStart);
+      window.addEventListener("mousemove",e=>onMouseContinue(e,false));
+      window.addEventListener("mouseup",e=>onMouseContinue(e,true));
+    }
+    const finishActive=()=>{if(drag)pointerDone({pointerId:drag.pointerId,type:"pointercancel"});};
+    window.addEventListener("blur",finishActive);
+    document.addEventListener?.("visibilitychange",()=>{if(document.hidden)finishActive();});
     for(const size of [25,50,75]){
       $("scene-preset-"+size).addEventListener("click",()=>resizeSelected(size,Math.round(size*9/16)));
     }

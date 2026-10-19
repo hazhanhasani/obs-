@@ -42,6 +42,15 @@ jobs:
           pip install -r dashboard/requirements.txt pytest httpx
       - name: Execute regression suite
         run: python -m pytest -q tests
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Real mouse, touch, pen and FFmpeg browser interactions
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npm run test:browser
       - name: Build production image before publishing
         run: docker compose build dashboard
       - name: Publish approved release

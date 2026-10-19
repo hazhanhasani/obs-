@@ -13,12 +13,13 @@ FIT_MODES = ("contain", "cover", "stretch")
 # The transform can leave the published viewport, unlike its visible pixels.
 # Range also bounds CPU and memory requirements on a shared VPS.
 MIN_POSITION, MAX_POSITION = -200.0, 200.0
-MIN_SIZE, MAX_SIZE = 5.0, 200.0
+MIN_SIZE, MAX_SIZE = 0.1, 200.0
 
 # Rendering presets are intentionally finite to cap CPU and memory requirements.
 # Older channels remain landscape unless explicitly changed by the operator.
 CANVAS_PRESETS = {
     "landscape": (1280, 720),
+    "landscape_fullhd": (1920, 1080),
     "portrait": (720, 1280),
     "portrait_fullhd": (1080, 1920),
 }

@@ -4,7 +4,7 @@
 
 The drag-and-drop canvas uses browser CSS and still-media posters. Its
 appearance is an *editing approximation* — not an encoded video frame.
-FFmpeg composes the actual channel at 1280×720 (16:9), then MediaMTX
+FFmpeg composes the actual channel at its selected output preset, then MediaMTX
 distributes it to HLS and the RTMP destinations such as Telegram.
 
 Transparent padding in an uploaded logo, `Contain`/`Cover` resizing,
@@ -16,7 +16,7 @@ drafts can all make the browser preview appear different.
 1. Open **استودیو صحنه** and choose the correct channel.
 2. Arrange the background video, image/logo and text overlays.
 3. Click **رندر خروجی قبل از ذخیره** in the new **پیش‌نمایش واقعی FFmpeg** panel.
-4. The VPS encodes a 1280×720 JPEG frame using the **same graph of source
+4. The VPS encodes a JPEG frame at the selected canvas resolution using the **same graph of source
    inputs, geometry, scaling and effects as the live FFmpeg publisher**.
 5. Inspect this encoded frame before **ذخیره و اعمال صحنه**.
 6. Save and apply. The publisher for that channel may briefly restart.
@@ -29,12 +29,11 @@ from a single static frame. It is not a live preview of the destination.
 
 ### Source selection and letterboxing
 
-The final output is **16:9 (1280×720)**. A vertical base video is fitted
-inside this 16:9 area with bars at its sides. Telegram's own player may
-add additional padding, but it does not intentionally rearrange the layer
-geometry. A different aspect ratio, such as a native 9:16 scene for
-Instagram or portrait Telegram viewing, requires a separate future
-output preset; the current CSS editor cannot turn a 16:9 stream into 9:16.
+The selected canvas can be landscape (1280×720 / 1920×1080) or portrait
+(720×1280 / 1080×1920). The editor, test background, real-render preview and
+live encoder all use that preset. Source media is fitted inside that canvas;
+changing orientation never rewrites stored layer percentages. Telegram may
+letterbox the encoded frame in its player, but does not rearrange sources.
 
 For pictures, `Contain` preserves the entire image, including any
 transparent margins; `Cover` fills the box but may crop the image.

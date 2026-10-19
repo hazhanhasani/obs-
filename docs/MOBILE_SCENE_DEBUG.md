@@ -1,3 +1,9 @@
+# Current transform diagnostics (0.8.0)
+
+Start with [the confirmed root causes and browser tests](SCENE_TRANSFORM_INVESTIGATION.md)
+and [the geometry contract](SCENE_GEOMETRY.md). Earlier CSS-only diagnoses
+below are historical and do not establish that resizing works.
+
 # Mobile Scene Editor Debugging — StreamCore v0.5.3
 
 A recorded Android reproduction showed the overlay geometry becoming smaller
@@ -30,8 +36,8 @@ git log -1 --oneline
 Ensure that the resulting version label in the dashboard reads
 `v0.5.3`. The HTML uses these versioned assets:
 
-- `/assets/scene-editor.js?v=0.5.3`
-- `/assets/scene-editor.css?v=0.5.3`
+- `/assets/scene-editor.js?v=0.8.0`
+- `/assets/scene-editor.css?v=0.8.0`
 
 If your Android browser still uses the older script, reload the tab, close
 other copies of the dashboard, or clear **site-only** cached data for the
@@ -48,7 +54,7 @@ StreamCore domain. Clearing all browser app data is normally unnecessary.
 5. Resize again; drag beyond the image edge and release. It should still keep
    the final position and size.
 6. Use the **25% / 50% / 75%** quick presets if your fingers obscure the
-   resize handle. A preset may move a layer slightly to keep it on screen.
+   resize handle. A size preset never repositions an off-frame layer.
 7. Click **ذخیره و اعمال صحنه**, wait for the success message, and reload the
    editor. Confirm the size and position have survived the round-trip to SQLite.
 8. Verify the actual HLS output on Dashboard. Visual changes to the broadcast

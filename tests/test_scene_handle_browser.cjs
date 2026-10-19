@@ -74,9 +74,9 @@ for(const viewport of [500,1080]) {
       assert.equal(h.hit,corner,"pointer hit-test must resolve "+corner);
       assert.equal(h.events,"auto",corner+" must receive pointer input");
       assert.equal(h.display,"grid",corner+" must remain visible");
-      assert.ok(Math.abs(h.x-(corner.includes("w")?b.left:b.right))<3,
+      assert.ok(Math.abs(h.x-(corner.includes("w")?b.left-h.width/2:b.right+h.width/2))<3,
         corner+" x is incorrectly positioned by an older CSS selector");
-      assert.ok(Math.abs(h.y-(corner.includes("n")?b.top:b.bottom))<3,
+      assert.ok(Math.abs(h.y-(corner.includes("n")?b.top-h.height/2:b.bottom+h.height/2))<3,
         corner+" y is incorrectly positioned by an older CSS selector");
       assert.ok(h.width>=34&&h.height>=34,"touch area must remain usable");
     }

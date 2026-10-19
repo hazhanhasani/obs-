@@ -283,8 +283,8 @@ async def security_headers(request, call_next):
     response.headers["Cache-Control"] = "no-store"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; "
-        "style-src 'self' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net data:; "
-        "img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; "
+        "style-src 'self' https://cdn.jsdelivr.net; style-src-attr 'unsafe-inline'; font-src 'self' https://cdn.jsdelivr.net data:; "
+        "img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; "
         "object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
     )
     return response
@@ -534,8 +534,8 @@ class SceneLayerInput(BaseModel):
     media_file: str = Field(min_length=5, max_length=96)
     x: float = Field(ge=-200, le=200, allow_inf_nan=False)
     y: float = Field(ge=-200, le=200, allow_inf_nan=False)
-    w: float = Field(ge=5, le=200, allow_inf_nan=False)
-    h: float = Field(ge=5, le=200, allow_inf_nan=False)
+    w: float = Field(ge=0.1, le=200, allow_inf_nan=False)
+    h: float = Field(ge=0.1, le=200, allow_inf_nan=False)
     fit: str = Field(default="contain", pattern=r"^(contain|cover|stretch)$")
     opacity: int = Field(default=100, ge=10, le=100)
     effect: str = Field(default="none", pattern=r"^(none|fade|slide-left|slide-right|blink)$")
@@ -549,8 +549,8 @@ class SceneTextInput(BaseModel):
     text: str = Field(min_length=1, max_length=240)
     x: float = Field(ge=-200, le=200, allow_inf_nan=False)
     y: float = Field(ge=-200, le=200, allow_inf_nan=False)
-    w: float = Field(ge=5, le=200, allow_inf_nan=False)
-    h: float = Field(ge=5, le=200, allow_inf_nan=False)
+    w: float = Field(ge=0.1, le=200, allow_inf_nan=False)
+    h: float = Field(ge=0.1, le=200, allow_inf_nan=False)
     font_size: int = Field(default=46, ge=12, le=110)
     color: str = Field(default="#ffffff", pattern=r"^#[0-9a-fA-F]{6}$")
     background: str = Field(default="transparent", pattern=r"^(transparent|#[0-9a-fA-F]{6})$")
@@ -566,7 +566,7 @@ class SceneTextInput(BaseModel):
 class SceneInput(BaseModel):
     base_file: str | None = None
     canvas_preset: str | None = Field(
-        default=None, pattern=r"^(landscape|portrait|portrait_fullhd)$"
+        default=None, pattern=r"^(landscape|landscape_fullhd|portrait|portrait_fullhd)$"
     )
     layers: list[SceneLayerInput] = Field(default_factory=list, max_length=8)
     text_layers: list[SceneTextInput] | None = Field(default=None, max_length=5)
