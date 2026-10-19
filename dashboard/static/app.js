@@ -65,12 +65,19 @@ function stopPlayer(){
   }
   if(state.hls){state.hls.destroy();state.hls=null;}
   vid.pause();vid.removeAttribute("src");vid.load();state.playerKey=null;
+  const wrapper=vid.closest(".preview");if(wrapper)delete wrapper.dataset.orientation;
 }
 function updatePlayer(url,active){
   stopPlayer();state.playerKey=state.channel+":"+(active?"live":"off");
   $("preview-empty").hidden=active;
   if(!active)return;
   const video=$("player");
+  const wrapper=video.closest(".preview");
+  video.onloadedmetadata=()=>{
+    if(wrapper && video.videoWidth && video.videoHeight){
+      wrapper.dataset.orientation=video.videoHeight>video.videoWidth?"portrait":"landscape";
+    }
+  };
   if(window.Hls && Hls.isSupported()){
     state.hls=new Hls({liveSyncDurationCount:3,maxBufferLength:12});
     state.hls.loadSource(url);state.hls.attachMedia(video);
