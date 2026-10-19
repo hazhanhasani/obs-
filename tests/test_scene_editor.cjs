@@ -204,7 +204,7 @@ test("touch cancellation retains geometry and versioned assets",async()=>{
   assert.equal(saved.h,35);
   assert.equal(h.window.StreamCoreScene.hasUnsaved(),false);
   const html=fs.readFileSync(path.join(__dirname,"../dashboard/static/index.html"),"utf8");
-  assert.match(html,/scene-editor\\.js\\?v=[0-9]+\\.[0-9]+\\.[0-9]+/);
+  assert.match(html,/scene-editor\.js\?v=[0-9]+\.[0-9]+\.[0-9]+/);
   assert.match(html,/id="scene-gesture-status"/);
   assert.match(html,/id="scene-preset-50"/);
 });
@@ -263,8 +263,8 @@ test("small mobile logo is not hidden by the resize handle or canvas highlight",
   // 14px visible dot, while the transparent 42px mobile hit area is large enough.
   assert.match(css,/\.scene-handle::after\{[^}]*width:14px;height:14px;/);
   assert.match(css,/\.scene-item \.scene-handle\{width:42px;height:42px;/);
-  assert.match(html,/scene-editor\\.css\\?v=[0-9]+\\.[0-9]+\\.[0-9]+/);
-  assert.match(html,/scene-editor\\.js\\?v=[0-9]+\\.[0-9]+\\.[0-9]+/);
+  assert.match(html,/scene-editor\.css\?v=[0-9]+\.[0-9]+\.[0-9]+/);
+  assert.match(html,/scene-editor\.js\?v=[0-9]+\.[0-9]+\.[0-9]+/);
 });
 
 test("studio warns when Telegram destination broadcasts a different channel",async()=>{
