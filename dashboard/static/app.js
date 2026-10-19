@@ -50,6 +50,7 @@ function render(){
   const url=location.origin+"/live/"+state.channel+"/index.m3u8";
   $("hls-url").textContent=url;
   renderMedia(media);renderChannels(channels);renderDestinations(data.destinations || [], channels);renderChart(data.system.cpu,data.system.ram);
+  window.StreamCoreScene?.sync(data);
   const playerKey=state.channel+":"+(active?"live":"off");
   if(state.page==="dashboard" && playerKey!==state.playerKey){updatePlayer(url,active);}
   if(state.page!=="dashboard" && state.playerKey!==null)stopPlayer();
@@ -120,10 +121,15 @@ function uploadMediaFile(file){
 }
 
 function renderMedia(media){
-  const html=media.slice(0,6).map(m=>'<tr><td><span class="media-name"><span class="media-thumb"><i class="bi bi-film"></i></span>'+esc(m.name)+'</span></td><td dir="ltr">'+duration(m.duration)+'</td><td dir="ltr">'+size(m.bytes)+'</td><td><button class="mini-action" data-use="'+esc(m.file)+'">انتخاب برای کانال</button></td></tr>').join("");
+  const displayType=m=>m.kind==="image"?"تصویر":duration(m.duration);
+  const icon=m=>m.kind==="image"?"bi-image":"bi-film";
+  const action=m=>m.kind==="image"
+    ?'<button class="mini-action" data-go-scene>افزودن به صحنه</button>'
+    :'<button class="mini-action" data-use="'+esc(m.file)+'">انتخاب برای کانال</button>';
+  const html=media.slice(0,6).map(m=>'<tr><td><span class="media-name"><span class="media-thumb"><i class="bi '+icon(m)+'"></i></span>'+esc(m.name)+'</span></td><td>'+displayType(m)+'</td><td dir="ltr">'+size(m.bytes)+'</td><td>'+action(m)+'</td></tr>').join("");
   $("media-queue").innerHTML=html;$("media-empty").hidden=media.length>0;
-  $("media-library").innerHTML=media.map(m=>'<tr><td>'+esc(m.name)+'</td><td dir="ltr">'+duration(m.duration)+'</td><td dir="ltr">'+size(m.bytes)+'</td><td><button class="mini-action" data-use="'+esc(m.file)+'">انتخاب</button> <button class="mini-action danger" data-remove-media="'+m.id+'">حذف</button></td></tr>').join("") || '<tr><td colspan="4" class="empty-state">هیچ رسانه‌ای موجود نیست.</td></tr>';
-  $("media-count").textContent=fa(media.length)+" فایل";
+  $("media-library").innerHTML=media.map(m=>'<tr><td>'+esc(m.name)+'</td><td>'+displayType(m)+'</td><td dir="ltr">'+size(m.bytes)+'</td><td>'+action(m)+' <button class="mini-action danger" data-remove-media="'+m.id+'">حذف</button></td></tr>').join("") || '<tr><td colspan="4" class="empty-state">هیچ رسانه‌ای موجود نیست.</td></tr>';
+  $("media-count").textContent=fa(media.length)+" رسانه";
 }
 function renderDestinations(destinations, channels){
   const select=$("dest-channel");
@@ -168,9 +174,10 @@ function page(pageName){
   state.page=pageName;
   document.querySelectorAll("[data-view]").forEach(el=>el.hidden=el.dataset.view!==pageName);
   document.querySelectorAll("[data-page]").forEach(el=>el.classList.toggle("active",el.dataset.page===pageName));
-  $("page-heading").textContent=({dashboard:"داشبورد استریم",channels:"کانال‌ها",media:"کتابخانه رسانه",system:"وضعیت سیستم",destinations:"پخش چندمقصدی"})[pageName];
+  $("page-heading").textContent=({dashboard:"داشبورد استریم",channels:"کانال‌ها",media:"کتابخانه رسانه",scene:"استودیو صحنه",system:"وضعیت سیستم",destinations:"پخش چندمقصدی"})[pageName];
   $("app").classList.remove("menu-open");
   if(pageName==="dashboard" && state.overview)render();
+  if(pageName==="scene")window.StreamCoreScene?.open(state.channel);
 }
 async function action(path,opts){try{await api(path,opts);await refresh();return true;}catch(e){toast(e.message);return false;}}
 function json(data){return JSON.stringify(data);}
@@ -207,7 +214,8 @@ function setup(){
     e.preventDefault();
     if(state.uploadRequest)return;
     const file=$("media-file").files[0];if(!file)return;
-    const maxMB=state.overview?.limits?.max_upload_mb||1024;
+    const isImage=/\.(png|jpe?g|webp)$/i.test(file.name);
+    const maxMB=isImage?(state.overview?.limits?.max_image_mb||12):(state.overview?.limits?.max_upload_mb||1024);
     if(!file.size || file.size>maxMB*1024*1024){
       const message=!file.size?"فایل انتخاب‌شده خالی است.":"حداکثر حجم مجاز "+fa(maxMB)+" مگابایت است.";
       $("upload-result").textContent=message;toast(message);return;
@@ -241,6 +249,7 @@ function setup(){
     const destRotate=e.target.closest("[data-rotate-dest]");
     if(destRotate){const key=prompt("کلید جدید استریم را وارد کنید (کلید ذخیره‌شده هرگز نمایش داده نمی‌شود):");
       if(key)await action("/destinations/"+destRotate.dataset.rotateDest,{method:"PATCH",body:json({stream_key:key})});return;}
+    const scene=e.target.closest("[data-go-scene]");if(scene){page("scene");return;}
     const use=e.target.closest("[data-use]");if(use){await selectMedia(use.dataset.use);return;}
     const manage=e.target.closest("[data-manage]");if(manage){state.channel=manage.dataset.manage;page("dashboard");render();return;}
     const rm=e.target.closest("[data-remove-media]");if(rm){if(confirm("فایل ویدئویی از سرور حذف شود؟"))await action("/media/"+rm.dataset.removeMedia,{method:"DELETE"});return;}
@@ -251,3 +260,4 @@ function setup(){
 function openModal(){$("modal").hidden=false;$("new-channel-name").focus();}
 function closeModal(){$("modal").hidden=true;$("channel-form").reset();}
 setup();bootstrap();
+window.addEventListener("DOMContentLoaded",()=>window.StreamCoreScene?.init({api,state,toast,page}));
