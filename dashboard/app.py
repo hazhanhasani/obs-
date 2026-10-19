@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.middleware.sessions import SessionMiddleware
 from destinations import DestinationSupervisor, init_table
-from scene import init_scene_db, scene_for, save_scene, remove_scene, is_scene_media_used, scene_command
+from scene import init_scene_db, scene_for, save_scene, remove_scene, is_scene_media_used, scene_command, preflight_scene
 from PIL import Image, UnidentifiedImageError
 
 ROOT = Path(__file__).resolve().parent
@@ -547,11 +547,16 @@ def get_scene(request: Request, channel: str):
 def update_scene(request: Request, channel: str, body: SceneInput):
     authorize(request, unsafe=True)
     try:
+        # Validate external files, fonts, timing and FFmpeg filter generation
+        # before saving the scene or stopping the currently running publisher.
+        preflight_scene(MEDIA, body.base_file, body.layers, body.text_layers)
         save_scene(connect, channel, body.base_file, body.layers, body.text_layers)
     except LookupError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
+    except OSError as error:
+        raise HTTPException(status_code=422, detail="آماده‌سازی صحنه ناموفق بود؛ پخش قبلی حفظ شد.") from error
     # Rebuild the encoder only when the operator explicitly saves the scene.
     # Channel desired-state and destination configurations remain preserved.
     controller.stop(channel)
