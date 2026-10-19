@@ -7,7 +7,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const {test} = require("node:test");
 
-function harness() {
+function harness({canvasWidth=1000,canvasHeight=562.5}={}) {
   const elements = new Map();
   class Element {
     constructor(id) {
@@ -42,7 +42,7 @@ function harness() {
       }
       return [];
     }
-    getBoundingClientRect(){return {width:1000,height:562.5,left:0,top:0};}
+    getBoundingClientRect(){return {width:canvasWidth,height:canvasHeight,left:0,top:0};}
     removeAttribute() {}
     focus() {}
   }
@@ -216,4 +216,39 @@ test("size preset is retained through API save",async()=>{
   await h.save();
   assert.equal(h.saved().layers[0].w,50);
   assert.equal(h.saved().layers[0].h,28);
+});
+
+test("narrow 390px Android viewport retains correct percentages",async()=>{
+  const h=harness({canvasWidth:390,canvasHeight:219.375});
+  await h.open();
+  h.root.dispatch("pointerdown",{target:h.handle,clientX:170,clientY:80});
+  h.root.dispatch("pointermove",{clientX:209,clientY:102});
+  h.window.dispatch("pointerup",{clientX:209,clientY:102});
+  // 39/390 = 10% horizontal; 22/219.375 ~ 10% vertical.
+  assert.match(h.root.innerHTML,/width:35%;height:35%/);
+  await h.save();
+  assert.equal(h.saved().layers[0].w,35);
+  assert.equal(h.saved().layers[0].h,35);
+});
+
+test("unexpected capture loss must retain the active Android drag",async()=>{
+  const h=harness({canvasWidth:390,canvasHeight:219.375});
+  await h.open();
+  h.root.dispatch("pointerdown",{target:h.handle,clientX:170,clientY:80});
+  h.root.dispatch("lostpointercapture",{pointerId:1});
+  h.window.dispatch("pointermove",{pointerId:1,clientX:209,clientY:102});
+  h.window.dispatch("pointerup",{pointerId:1,clientX:209,clientY:102});
+  assert.match(h.root.innerHTML,/width:35%;height:35%/);
+});
+
+test("size preset near right edge repositions overlay rather than shrinking it",async()=>{
+  const h=harness();await h.open();
+  h.document.getElementById("scene-x").value=70;
+  h.document.getElementById("scene-x").dispatch("change",{});
+  h.document.getElementById("scene-preset-75").dispatch("click",{});
+  assert.match(h.root.innerHTML,/left:25%/);
+  assert.match(h.root.innerHTML,/width:75%/);
+  await h.save();
+  assert.equal(h.saved().layers[0].x,25);
+  assert.equal(h.saved().layers[0].w,75);
 });
