@@ -18,6 +18,8 @@ jobs:
           bash -n install.sh
           bash tests/test_installer.sh
           node --check dashboard/static/app.js
+          node --check dashboard/static/scene-editor.js
+          python -m compileall -q dashboard
           cp .env.example .env
           docker compose --profile legacy-demo --profile legacy-file config --quiet
       - name: Install test dependencies
