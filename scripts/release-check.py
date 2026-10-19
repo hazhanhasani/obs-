@@ -37,9 +37,15 @@ def main() -> int:
     try:
         with urllib.request.urlopen(request, timeout=20) as response:
             release = json.load(response)
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            print("No published GitHub Release yet (HTTP 404).", file=sys.stderr)
+            return 1
+        print(f"GitHub Release API error: HTTP {error.code}", file=sys.stderr)
+        return 2
     except (urllib.error.URLError, json.JSONDecodeError) as error:
-        print(f"No reachable stable release: {error}", file=sys.stderr)
-        return 1
+        print(f"Cannot verify GitHub Releases: {error}", file=sys.stderr)
+        return 2
     tag = new_release(installed, release)
     if not tag:
         return 1
