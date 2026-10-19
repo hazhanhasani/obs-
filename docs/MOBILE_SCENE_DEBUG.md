@@ -1,4 +1,4 @@
-# Current transform diagnostics (0.8.0)
+# Current transform diagnostics (0.8.1)
 
 Start with [the confirmed root causes and browser tests](SCENE_TRANSFORM_INVESTIGATION.md)
 and [the geometry contract](SCENE_GEOMETRY.md). Earlier CSS-only diagnoses
@@ -36,8 +36,8 @@ git log -1 --oneline
 Ensure that the resulting version label in the dashboard reads
 `v0.5.3`. The HTML uses these versioned assets:
 
-- `/assets/scene-editor.js?v=0.8.0`
-- `/assets/scene-editor.css?v=0.8.0`
+- `/assets/scene-editor.js?v=0.8.1`
+- `/assets/scene-editor.css?v=0.8.1`
 
 If your Android browser still uses the older script, reload the tab, close
 other copies of the dashboard, or clear **site-only** cached data for the

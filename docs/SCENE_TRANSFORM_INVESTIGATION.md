@@ -101,3 +101,46 @@ CI installs the pinned Playwright Chromium build for reproducibility.
   syntax and `git diff --check` passed.
 - No local Docker CLI was available; container build is delegated to the
   required GitHub Actions validation job and must be checked there.
+
+## Physical-phone report follow-up: Chromium touch adjustment (0.8.1)
+
+The operator installed 0.8.0 and reported that Chrome on their Android phone
+still could not resize. This was not contradicted by CI: its point-size CDP
+contacts were aimed at the center of an invisible 44px hitbox, not the visible
+15px orange grip near the hitbox's inner edge.
+
+A new test dispatched a 14px-radius finger contact exactly on each orange
+grip. All four failed on the old code: the actual `pointerdown.target` was the
+media DIV (`role=button`), not the decorative span grip. Chromium's mobile
+touch adjustment preferred the nearby interactive source. This started a
+move gesture instead of a resize even though point hit-testing found a grip.
+
+Replacing the span with a native `button type=button` made the same four
+tests pass without changing CSS, geometry, capture or viewport constraints.
+The controls retain `tabindex=-1` and `aria-hidden=true`; numeric geometry
+fields remain the accessible keyboard path, avoiding inert keyboard buttons.
+
+Regression cases now touch the visible grip with 1, 8, 14 and 22px contact
+radii at device scale factors 1, 2.75 and 3. They inspect the actual browser
+pointer target and verify dimensions, opposite anchors, save and reload.
+These tests use Chromium mobile emulation. Actual Android confirmation is
+still required after installing this follow-up; no physical-device success
+is claimed.
+
+### Apply the frontend-only 0.8.1 fix without restarting streams
+
+For the existing Compose installation, build the updated image for future
+container recreations, then copy its unchanged-path frontend files into the
+running dashboard. Neither command recreates a running container:
+
+```sh
+cd /opt/streamcore &&
+git pull --ff-only origin main &&
+docker compose build dashboard &&
+docker compose cp dashboard/static/. dashboard:/app/static/
+```
+
+Reload the browser page to request the 0.8.1 versioned assets. Do not add
+`up`, `restart` or `down` to this frontend-only procedure during a live stream.
+This does not apply backend changes in future releases; those require the
+normal maintenance/update procedure.

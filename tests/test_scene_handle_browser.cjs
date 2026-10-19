@@ -31,8 +31,8 @@ function snapshot(viewportWidth) {
       ".scene-item{left:70px;top:60px;width:120px;height:100px;}</style></head><body>"+
       "<div class='scene-canvas'><div class='scene-items'>"+
       "<div class='scene-item selected' data-layer='fixture'>"+
-      ["nw","ne","sw","se"].map(c=>"<span class='scene-handle scene-handle-"+c+
-        "' data-resize-corner='"+c+"'></span>").join("")+
+      ["nw","ne","sw","se"].map(c=>"<button type='button' class='scene-handle scene-handle-"+c+
+        "' data-resize-corner='"+c+"'></button>").join("")+
       "</div></div></div><output id='scene-result'></output>"+
       "<script>"+
       "const el=document.querySelector('.scene-item'),b=el.getBoundingClientRect();"+

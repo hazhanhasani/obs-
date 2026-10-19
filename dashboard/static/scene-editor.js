@@ -14,9 +14,12 @@
   const fieldNames=["x","y","w","h","opacity"];
   const {transform:transformFromGesture,MIN_POSITION,MAX_POSITION,MIN_SIZE,MAX_SIZE}=window.StreamCoreTransform;
   const tenth=(v)=>Math.round(v*10)/10;
+  // Native buttons matter: Chromium's finite-contact touch adjustment can
+  // retarget decorative span grips to the nearby media role=button instead.
+  // Numeric properties provide keyboard access; these grips stay pointer-only.
   const cornerHandles=()=>["nw","ne","sw","se"].map(corner=>
-    '<span class="scene-handle scene-handle-'+corner+'" data-resize-corner="'+corner+
-    '" title="Resize '+corner+'" aria-hidden="true"></span>').join("");
+    '<button type="button" class="scene-handle scene-handle-'+corner+'" data-resize-corner="'+corner+
+    '" title="Resize '+corner+'" tabindex="-1" aria-hidden="true"></button>').join("");
   function applyTransform(item,geometry){
     for(const key of ["x","y","w","h"])item[key]=tenth(geometry[key]);
   }

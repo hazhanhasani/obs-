@@ -22,8 +22,8 @@ before(async()=>{
 });
 after(async()=>{await browser?.close();server?.kill();});
 const layer=(extra={})=>({layer_id:'logo_test',media_file:'logo.png',x:20,y:25,w:40,h:40,fit:'stretch',opacity:100,effect:'none',...extra});
-async function setup(width=1080,preset='landscape',layers=[layer()],touch=false,texts=[]){
-  const context=await browser.newContext({viewport:{width,height:1000},isMobile:touch,hasTouch:touch,deviceScaleFactor:1,...(process.env.SCENE_VIDEO?{recordVideo:{dir:'test-results/video',size:{width,height:1000}}}:{})});
+async function setup(width=1080,preset='landscape',layers=[layer()],touch=false,texts=[],deviceScaleFactor=1){
+  const context=await browser.newContext({viewport:{width,height:1000},isMobile:touch,hasTouch:touch,deviceScaleFactor,...(process.env.SCENE_VIDEO?{recordVideo:{dir:'test-results/video',size:{width,height:1000}}}:{})});
   const page=await context.newPage(),errors=[],cancels=[];
   page.on('pageerror',e=>errors.push(e.message));
   page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
@@ -299,5 +299,38 @@ if(process.env.SCENE_VIDEO)test('mobile four-corner demonstration',async()=>{
     }
     await h.saveReload();await h.page.locator('#scene-canvas').scrollIntoViewIfNeeded();
     await h.page.screenshot({path:'test-results/scene-demo.png'});await h.finish();
+  }catch(e){await h.context.close();throw e;}
+});
+
+// Chromium touch adjustment uses the contact ellipse to prefer interactive
+// controls. A point-sized synthetic touch cannot detect retargeting of a
+// decorative grip to a nearby media element with role=button.
+for(const [width,preset,dpr] of [[390,'landscape',1],[393,'portrait',2.75],[360,'landscape',3]])
+for(const corner of ['nw','ne','sw','se'])test(`Android finger contact ${width} DPR ${dpr} visible ${corner}`,async()=>{
+  const h=await setup(width,preset,[layer()],true,[],dpr);
+  try{
+    await h.page.evaluate(()=>{
+      window.contactTargets=[];document.addEventListener('pointerdown',e=>window.contactTargets.push({tag:e.target.tagName,corner:e.target.closest('[data-resize-corner]')?.dataset.resizeCorner,layer:e.target.closest('[data-layer]')?.dataset.layer}),true);
+    });
+    const cdp=await h.context.newCDPSession(h.page);
+    for(const radius of [1,8,14,22]){
+      await h.page.evaluate(()=>{window.contactTargets=[];});
+      const b=await h.page.locator(`[data-resize-corner="${corner}"]`).boundingBox();
+      const x=corner.includes('w')?b.x+b.width-7.5:b.x+7.5;
+      const y=corner.includes('n')?b.y+b.height-7.5:b.y+7.5;
+      const before=await h.geometry(),frame=await h.page.locator('#scene-items').boundingBox();
+      const point=(dx,dy)=>({x:x+dx,y:y+dy,id:1,radiusX:radius,radiusY:radius,force:.7});
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point(0,0)]});
+      for(let i=1;i<=8;i++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[point(i,i)]});
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+      const targets=await h.page.evaluate(()=>window.contactTargets),g=await h.assertVisual();
+      assert.equal(targets[0]?.corner,corner,JSON.stringify({radius,targets}));
+      assert.equal(targets[0]?.tag,'BUTTON','grip must be a real interactive touch target');
+      assert.ok(Math.abs(g.w-before.w-(corner.includes('w')?-800:800)/frame.width)<.25,'finger resize width delta');
+      assert.ok(Math.abs(g.h-before.h-(corner.includes('n')?-800:800)/frame.height)<.25,'finger resize height delta');
+      assert.ok(Math.abs((corner.includes('w')?g.x+g.w:g.x)-(corner.includes('w')?before.x+before.w:before.x))<.15,'finger fixed X edge');
+      assert.ok(Math.abs((corner.includes('n')?g.y+g.h:g.y)-(corner.includes('n')?before.y+before.h:before.y))<.15,'finger fixed Y edge');
+    }
+    await cdp.detach();await h.saveReload();await h.finish();
   }catch(e){await h.context.close();throw e;}
 });

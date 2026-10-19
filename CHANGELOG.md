@@ -4,6 +4,22 @@ All significant StreamCore changes are documented here.
 
 This project is still in alpha; stable release guarantees and migration automation are not yet available.
 
+## [0.8.1-alpha] — 2026-10-19
+
+### Fixed
+- Use native buttons for resize grips. Chromium's mobile touch adjustment
+  retargeted a finite finger contact on decorative span grips to the nearby
+  media role=button, starting a move instead of a resize.
+- Invalidate editor assets with 0.8.1 versions.
+
+### Validation
+- Add input tests at the visible orange grip, with touch contact radii of
+  1, 8, 14 and 22 CSS pixels and device scale factors 1, 2.75 and 3.
+- Verify actual pointer targets, all four opposite-edge anchors, dimensions,
+  SQLite persistence and reload. Point-only center-of-hitbox tests did not
+  cover this Chromium touch-adjustment behavior.
+- Physical Android verification still requires testing the updated installation.
+
 ## [0.8.0-alpha] — 2026-10-19
 
 ### Fixed
