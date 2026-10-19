@@ -8,6 +8,7 @@ import secrets
 import signal
 import sqlite3
 import subprocess
+import tempfile
 import threading
 import time
 from contextlib import asynccontextmanager
@@ -16,13 +17,13 @@ from urllib.request import urlopen
 
 import psutil
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.middleware.sessions import SessionMiddleware
 from destinations import DestinationSupervisor, init_table
 from telemetry import ProgressTracker
-from scene import init_scene_db, scene_for, save_scene, remove_scene, is_scene_media_used, scene_command, preflight_scene
+from scene import init_scene_db, scene_for, save_scene, remove_scene, is_scene_media_used, scene_command, preflight_scene, validate_scene, validate_text_layers, scene_snapshot_command
 from PIL import Image, UnidentifiedImageError
 
 ROOT = Path(__file__).resolve().parent
@@ -598,6 +599,77 @@ def update_scene(request: Request, channel: str, body: SceneInput):
     controller.next_retry.pop(channel, None)
     controller.reconcile()
     return {"ok": True, "scene": scene_for(connect, channel)}
+
+
+
+# Restrict full-resolution snapshots to one FFmpeg process on a shared VPS.
+scene_preview_limit = threading.BoundedSemaphore(1)
+
+
+def render_scene_snapshot(channel: str, body: SceneInput):
+    """Create a true FFmpeg preview without touching persistent channel state."""
+    with tempfile.TemporaryDirectory(prefix="scene-preview-", dir=DATA) as temp:
+        with connect() as db:
+            kinds = {row["file"]: row["kind"] for row in db.execute(
+                "SELECT file,kind FROM media"
+            )}
+        media_layers = [
+            {**layer.model_dump(), "kind": kinds[layer.media_file]}
+            for layer in body.layers
+        ]
+        saved = scene_for(connect, channel)
+        text_layers = (
+            [dict(item) for item in saved["text_layers"]]
+            if body.text_layers is None
+            else [item.model_dump() for item in body.text_layers]
+        )
+        command = scene_command(
+            connect, channel, body.base_file, MEDIA, "unused-preview-output",
+            Path(temp) / "rendered_text",
+            scene_override={"media": media_layers, "text_layers": text_layers}
+        )
+        snapshot = scene_snapshot_command(command)
+        try:
+            result = subprocess.run(
+                snapshot, stdin=subprocess.DEVNULL, capture_output=True,
+                check=False, timeout=25
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            raise HTTPException(
+                status_code=503,
+                detail="پیش‌نمایش زمان زیادی گرفت؛ تعداد لایه‌ها را کاهش دهید."
+            ) from error
+        if result.returncode or result.stdout[:2] != bytes((255, 216)):
+            raise HTTPException(
+                status_code=422,
+                detail="رندر FFmpeg ناموفق بود؛ فرمت یا افکت‌های صحنه را بررسی کنید."
+            )
+        return result.stdout
+
+
+@app.post("/api/channels/{channel}/scene/preview")
+async def preview_unpublished_scene(request: Request, channel: str, body: SceneInput):
+    """Authenticate, preflight and render an unpublished frame; no live restart."""
+    authorize(request, unsafe=True)
+    try:
+        saved = scene_for(connect, channel)
+        validate_scene(connect, body.base_file, body.layers)
+        texts = body.text_layers
+        if texts is None:
+            texts = [SceneTextInput(**item) for item in saved["text_layers"]]
+        validate_text_layers(texts)
+        preflight_scene(MEDIA, body.base_file, body.layers, texts)
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except (ValueError, OSError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    if not scene_preview_limit.acquire(blocking=False):
+        raise HTTPException(status_code=429, detail="پیش‌نمایش دیگری در حال رندر است.")
+    try:
+        frame = await asyncio.to_thread(render_scene_snapshot, channel, body)
+    finally:
+        scene_preview_limit.release()
+    return Response(frame, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/media/poster/{media_id}")
