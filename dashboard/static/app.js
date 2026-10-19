@@ -1,6 +1,8 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
 const state = {csrf:null, overview:null, channel:"main", page:"dashboard", playerKey:null, hls:null, chartCPU:[], chartRAM:[], timer:null};
+const providers = {telegram:"تلگرام",instagram:"اینستاگرام",aparat:"آپارات",youtube:"یوتیوب",twitch:"توییچ",custom:"RTMP اختصاصی"};
+const providersIcons = {telegram:"bi-telegram",instagram:"bi-instagram",aparat:"bi-collection-play",youtube:"bi-youtube",twitch:"bi-twitch",custom:"bi-broadcast"};
 const fa = (value) => Number(value || 0).toLocaleString("fa-IR");
 const esc = (x) => String(x ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 const duration = (seconds) => {const s=Math.floor(seconds||0);return [Math.floor(s/3600),Math.floor(s%3600/60),s%60].map(v=>String(v).padStart(2,"0")).join(":");};
@@ -47,7 +49,7 @@ function render(){
   $("stat-media").textContent=fa(media.length);
   const url=location.origin+"/live/"+state.channel+"/index.m3u8";
   $("hls-url").textContent=url;
-  renderMedia(media);renderChannels(channels);renderChart(data.system.cpu,data.system.ram);
+  renderMedia(media);renderChannels(channels);renderDestinations(data.destinations || [], channels);renderChart(data.system.cpu,data.system.ram);
   const playerKey=state.channel+":"+(active?"live":"off");
   if(playerKey!==state.playerKey){state.playerKey=playerKey;updatePlayer(url,active);}
 }
@@ -71,6 +73,29 @@ function renderMedia(media){
   $("media-library").innerHTML=media.map(m=>'<tr><td>'+esc(m.name)+'</td><td dir="ltr">'+duration(m.duration)+'</td><td dir="ltr">'+size(m.bytes)+'</td><td><button class="mini-action" data-use="'+esc(m.file)+'">انتخاب</button> <button class="mini-action danger" data-remove-media="'+m.id+'">حذف</button></td></tr>').join("") || '<tr><td colspan="4" class="empty-state">هیچ رسانه‌ای موجود نیست.</td></tr>';
   $("media-count").textContent=fa(media.length)+" فایل";
 }
+function renderDestinations(destinations, channels){
+  const select=$("dest-channel");
+  const old=select.value;
+  const current=channels.map(c=>c.id).join(",");
+  if(select.dataset.channelIds!==current){
+    select.innerHTML=channels.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join("");
+    select.dataset.channelIds=current;
+    select.value=channels.some(c=>c.id===old)?old:(state.channel || "main");
+  }
+  $("dest-total").textContent=fa(destinations.length)+" مقصد";
+  $("destination-list").innerHTML=destinations.map(d=>{
+    const status=d.sending?"در حال ارسال":d.enabled?"در انتظار اتصال":"غیرفعال";
+    const klass=d.sending?"green":"gray";
+    return '<article class="destination-row"><div class="destination-icon"><i class="bi '+(providersIcons[d.platform]||"bi-broadcast")+'"></i></div>'
+      +'<div class="destination-info"><strong>'+esc(d.label)+'</strong>'
+      +'<span>'+esc(providers[d.platform]||d.platform)+' · '+esc(d.server_host)+' · '+esc(d.channel_id)+'</span>'
+      +'<small><span class="dot '+klass+'"></span>'+status+(d.error?' · '+esc(d.error):'')+'</small></div>'
+      +'<div class="destination-actions"><button class="mini-action" data-toggle-dest="'+esc(d.id)+'" data-next="'+(d.enabled?'false':'true')+'">'+(d.enabled?"غیرفعال کردن":"فعال کردن")+'</button>'
+      +'<button class="mini-action" data-rotate-dest="'+esc(d.id)+'">تغییر کلید</button>'
+      +'<button class="mini-action danger" data-delete-dest="'+esc(d.id)+'">حذف</button></div></article>';
+  }).join("") || '<p class="empty-state">خروجی‌ای ثبت نشده است؛ یک مقصد RTMP اضافه کنید.</p>';
+}
+
 function renderChannels(channels){
   $("channel-cards").innerHTML=channels.map(c=>'<article class="channel-card"><div class="status-row"><span class="dot '+(c.running?"green":"gray")+'"></span> '+(c.running?"پخش فعال":c.desired?"در حال اتصال":"متوقف")+'</div><h3>'+esc(c.name)+'</h3><div class="channel-id">/live/'+esc(c.id)+'/index.m3u8</div><div class="card-actions"><button class="primary" data-manage="'+esc(c.id)+'"><i class="bi bi-sliders"></i> مدیریت</button>'+ (c.id==="main"?"":'<button class="mini-action danger" data-remove-channel="'+esc(c.id)+'">حذف</button>') +'</div></article>').join("");
 }
@@ -90,7 +115,7 @@ function page(pageName){
   state.page=pageName;
   document.querySelectorAll("[data-view]").forEach(el=>el.hidden=el.dataset.view!==pageName);
   document.querySelectorAll("[data-page]").forEach(el=>el.classList.toggle("active",el.dataset.page===pageName));
-  $("page-heading").textContent=({dashboard:"داشبورد استریم",channels:"کانال‌ها",media:"کتابخانه رسانه",system:"وضعیت سیستم"})[pageName];
+  $("page-heading").textContent=({dashboard:"داشبورد استریم",channels:"کانال‌ها",media:"کتابخانه رسانه",system:"وضعیت سیستم",destinations:"پخش چندمقصدی"})[pageName];
   $("app").classList.remove("menu-open");
 }
 async function action(path,opts){try{await api(path,opts);await refresh();return true;}catch(e){toast(e.message);return false;}}
@@ -116,6 +141,14 @@ function setup(){
   $("create-channel").addEventListener("click",openModal);document.querySelectorAll("[data-create]").forEach(el=>el.addEventListener("click",openModal));
   $("modal-close").addEventListener("click",closeModal);$("modal").addEventListener("click",e=>{if(e.target===$("modal"))closeModal();});
   $("channel-form").addEventListener("submit",async(e)=>{e.preventDefault();const id=$("new-channel-id").value.trim(),name=$("new-channel-name").value.trim();const ok=await action("/channels",{method:"POST",body:json({id,name})});if(ok){state.channel=id;closeModal();page("dashboard");await refresh();toast("کانال ساخته شد.");}});
+  $("destination-form").addEventListener("submit",async(e)=>{
+    e.preventDefault();
+    const body={channel_id:$("dest-channel").value,platform:$("dest-platform").value,label:$("dest-label").value.trim(),
+      server_url:$("dest-server").value.trim(),stream_key:$("dest-key").value,enabled:false};
+    $("dest-submit").disabled=true;
+    try{await api("/destinations",{method:"POST",body:json(body)});$("destination-form").reset();await refresh();toast("مقصد با موفقیت ذخیره شد؛ اکنون می‌توانید آن را فعال کنید.");}
+    catch(err){toast(err.message);}finally{$("dest-submit").disabled=false;}
+  });
   $("upload-form").addEventListener("submit",async(e)=>{
     e.preventDefault();const file=$("media-file").files[0];if(!file)return;
     const form=new FormData();form.append("file",file);$("upload-btn").disabled=true;$("upload-result").textContent="در حال آپلود و بررسی کدک ویدئو...";
@@ -123,6 +156,13 @@ function setup(){
     catch(err){$("upload-result").textContent=err.message;toast(err.message);}finally{$("upload-btn").disabled=false;}
   });
   document.addEventListener("click",async(e)=>{
+    const destToggle=e.target.closest("[data-toggle-dest]");
+    if(destToggle){await action("/destinations/"+destToggle.dataset.toggleDest,{method:"PATCH",body:json({enabled:destToggle.dataset.next==="true"})});return;}
+    const destDelete=e.target.closest("[data-delete-dest]");
+    if(destDelete){if(confirm("این خروجی و کلید ذخیره‌شده آن حذف شوند؟"))await action("/destinations/"+destDelete.dataset.deleteDest,{method:"DELETE"});return;}
+    const destRotate=e.target.closest("[data-rotate-dest]");
+    if(destRotate){const key=prompt("کلید جدید استریم را وارد کنید (کلید ذخیره‌شده هرگز نمایش داده نمی‌شود):");
+      if(key)await action("/destinations/"+destRotate.dataset.rotateDest,{method:"PATCH",body:json({stream_key:key})});return;}
     const use=e.target.closest("[data-use]");if(use){await selectMedia(use.dataset.use);return;}
     const manage=e.target.closest("[data-manage]");if(manage){state.channel=manage.dataset.manage;page("dashboard");render();return;}
     const rm=e.target.closest("[data-remove-media]");if(rm){if(confirm("فایل ویدئویی از سرور حذف شود؟"))await action("/media/"+rm.dataset.removeMedia,{method:"DELETE"});return;}

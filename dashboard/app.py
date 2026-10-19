@@ -20,6 +20,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.middleware.sessions import SessionMiddleware
+from destinations import DestinationSupervisor, init_table
 
 ROOT = Path(__file__).resolve().parent
 MEDIA = Path(os.getenv("MEDIA_DIR", "/media")).resolve()
@@ -183,14 +184,18 @@ class Controller:
             self.stop(channel)
 
 controller = Controller()
+destination_manager = DestinationSupervisor(connect, SECRET, controller.state, DATA)
 failed_logins = {}
 login_lock = threading.Lock()
 
 @asynccontextmanager
 async def lifespan(app):
     init_db()
+    init_table(connect)
     controller.start()
+    destination_manager.start()
     yield
+    destination_manager.shutdown()
     controller.shutdown()
 
 app = FastAPI(title="StreamCore", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
@@ -278,6 +283,7 @@ def overview():
         cpu = ram = 0
     return {
         "channels": channels, "media": media,
+        "destinations": destination_manager.public_rows(),
         "system": {"cpu": cpu, "ram": ram, "total_ram": round(psutil.virtual_memory().total / 1024**3, 1)},
         "time": int(time.time())
     }
@@ -354,6 +360,7 @@ def remove_channel(request: Request, channel: str):
         if not row:
             raise HTTPException(status_code=404)
         db.execute("DELETE FROM channels WHERE id=?", (channel,))
+    destination_manager.delete_channel(channel)
     controller.stop(channel)
     return {"ok": True}
 
@@ -401,4 +408,66 @@ def delete_media(request: Request, media_id: int):
             raise HTTPException(status_code=409, detail="این فایل به یک کانال متصل است.")
         db.execute("DELETE FROM media WHERE id=?", (media_id,))
     (MEDIA / row["file"]).unlink(missing_ok=True)
+    return {"ok": True}
+
+
+class DestinationNew(BaseModel):
+    channel_id: str = Field(min_length=3, max_length=40)
+    platform: str
+    label: str = Field(min_length=2, max_length=60)
+    server_url: str = Field(min_length=9, max_length=700)
+    stream_key: str = Field(min_length=1, max_length=512)
+    enabled: bool = False
+
+
+class DestinationUpdate(BaseModel):
+    enabled: bool | None = None
+    server_url: str | None = None
+    stream_key: str | None = None
+    label: str | None = Field(default=None, min_length=2, max_length=60)
+
+
+@app.get("/api/destinations")
+def list_destinations(request: Request):
+    authorize(request)
+    return {"destinations": destination_manager.public_rows()}
+
+
+@app.post("/api/destinations", status_code=201)
+def add_destination(request: Request, body: DestinationNew):
+    authorize(request, unsafe=True)
+    try:
+        ident = destination_manager.create(
+            body.channel_id, body.platform, body.label,
+            body.server_url, body.stream_key, body.enabled
+        )
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error))
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error))
+    return {"ok": True, "id": ident}
+
+
+@app.patch("/api/destinations/{destination_id}")
+def update_destination(request: Request, destination_id: str, body: DestinationUpdate):
+    authorize(request, unsafe=True)
+    try:
+        destination_manager.update(
+            destination_id, enabled=body.enabled, server_url=body.server_url,
+            stream_key=body.stream_key, label=body.label
+        )
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error))
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error))
+    return {"ok": True}
+
+
+@app.delete("/api/destinations/{destination_id}")
+def delete_destination(request: Request, destination_id: str):
+    authorize(request, unsafe=True)
+    try:
+        destination_manager.delete(destination_id)
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error))
     return {"ok": True}

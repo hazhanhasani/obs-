@@ -56,6 +56,22 @@ class DashboardIntegrationTest(unittest.TestCase):
             )
             self.assertEqual(client.delete("/api/channels/main", headers=headers).status_code, 403)
             self.assertEqual(client.delete("/api/channels/music", headers=headers).status_code, 200)
+            created = client.post("/api/destinations", headers=headers, json={
+                "channel_id": "main", "platform": "telegram", "label": "Test Telegram",
+                "server_url": "rtmps://example.com/live",
+                "stream_key": "PRIVATE_SECRET_FOR_TESTS"
+            })
+            self.assertEqual(created.status_code, 201)
+            dest_id = created.json()["id"]
+            output = client.get("/api/destinations").json()
+            self.assertEqual(len(output["destinations"]), 1)
+            self.assertNotIn("PRIVATE_SECRET_FOR_TESTS", str(output))
+            self.assertEqual(output["destinations"][0]["server_host"], "example.com")
+            self.assertEqual(client.patch("/api/destinations/" + dest_id,
+                  json={"enabled": True}).status_code, 403)
+            self.assertEqual(client.patch("/api/destinations/" + dest_id, headers=headers,
+                  json={"stream_key": "NEW_SECRET_FOR_TESTS"}).status_code, 200)
+            self.assertEqual(client.delete("/api/destinations/" + dest_id, headers=headers).status_code, 200)
             self.assertEqual(client.post("/api/logout", headers=headers).status_code, 200)
             self.assertEqual(client.get("/api/overview").status_code, 401)
 

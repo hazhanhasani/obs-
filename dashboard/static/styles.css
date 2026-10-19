@@ -4,3 +4,15 @@
 @media(max-width:1190px){.broadcast-grid{grid-template-columns:minmax(0,1.5fr) minmax(295px,.92fr)}.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.preview{height:330px}.control-column{min-height:auto}.main{padding:22px}.topbar{padding:0 22px}.top-note{display:none}}
 @media(max-width:870px){.shell{grid-template-columns:minmax(0,1fr)}.sidebar{position:fixed;right:-230px;top:0;bottom:0;width:214px;z-index:30;transition:right .25s}.shell.menu-open .sidebar{right:0;box-shadow:-12px 0 65px #000a}.mobile-menu{display:block}.broadcast-grid{grid-template-columns:minmax(0,1fr)}.preview{height:360px}.stats-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.topbar{min-height:68px}.main{padding:20px}}
 @media(max-width:620px){.topbar h1{font-size:14px}.topbar-actions{gap:7px}.server-pill{display:none}.topbar .primary{padding:10px 11px;font-size:11px}.main{padding:14px}.section-title h2{font-size:19px}.preview{height:245px}.preview-placeholder b{font-size:15px}.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.stat{min-height:119px}.panel{padding:14px}.control-column{padding:16px}.system-grid{grid-template-columns:1fr}.chart-panel{display:none}.brand{font-size:18px}}
+
+.destination-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 20px;align-items:end}
+.destination-form .key-field{grid-column:1/2}.destination-form .field{min-width:0}
+.destination-form .destination-submit{display:flex;align-items:end;height:44px}
+.destination-panel{margin-top:20px}.destination-list{display:flex;flex-direction:column}
+.destination-row{display:flex;align-items:center;gap:15px;padding:17px 5px;border-bottom:1px solid var(--line)}
+.destination-row:last-child{border-bottom:0}.destination-icon{width:45px;height:45px;border-radius:12px;display:grid;place-items:center;background:#192a39;color:#ff7a34;font-size:23px;flex-shrink:0}
+.destination-info{display:flex;flex:1;min-width:0;flex-direction:column;gap:6px}
+.destination-info strong{font-size:14px}.destination-info span{font-size:11px;color:#8ea0b1;direction:ltr;text-align:right;overflow-wrap:anywhere}
+.destination-info small{font-size:10px;color:#93a7ba}.destination-actions{display:flex;gap:7px;flex-wrap:wrap}
+.security-tip{font-size:11px;color:#a4b2c3;line-height:1.9;margin:24px 0 0}
+@media(max-width:770px){.destination-form{grid-template-columns:1fr}.destination-form .key-field{grid-column:auto}.destination-row{flex-wrap:wrap}.destination-actions{width:100%;justify-content:flex-start}}

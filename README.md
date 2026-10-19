@@ -6,7 +6,7 @@
 
 **Stream once. Run continuously. Manage from anywhere.**
 
-[![Version](https://img.shields.io/badge/version-0.2.0--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
+[![Version](https://img.shields.io/badge/version-0.3.0--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Self Hosted](https://img.shields.io/badge/deployment-self--hosted-172436?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Powered by](https://img.shields.io/badge/media-FFmpeg%20%2B%20MediaMTX-19bd93?style=flat-square)](https://github.com/hazhanhasani/obs-)
 
@@ -18,7 +18,7 @@
 
 ## ✨ Design preview
 
-> **Concept designs — not screenshots from a tested deployment.** Some controls, counters, and features shown here are illustrative and are not yet available in the v0.2.0 alpha. These images show the approved design direction.
+> **Concept designs — not screenshots from a tested deployment.** Some controls, counters, and features shown here are illustrative and are not yet available in the v0.3.0 alpha. These images show the approved design direction.
 
 <div align="center">
 
@@ -47,7 +47,7 @@
 
 Unlike a traditional desktop-based streaming setup, **StreamCore runs its media pipeline on your own Linux VPS**. Your computer and phone do not need to stay online. The browser is only used to configure and monitor your streams.
 
-| Capability | v0.2.0 alpha |
+| Capability | v0.3.0 alpha |
 |:--|:--|
 | Server-generated live test broadcast | ✅ Implemented |
 | Upload H.264 files to VPS | ✅ Implemented |
@@ -57,9 +57,21 @@ Unlike a traditional desktop-based streaming setup, **StreamCore runs its media 
 | HLS browser delivery via Caddy | ✅ Implemented |
 | Recover desired streams after container restart | ✅ Implemented |
 | Timed playlists and automatic scheduling | 🛠️ Planned |
-| External live inputs / RTMP multi-destination | 🛠️ Planned |
+| RTMP/RTMPS outbound multistream to Telegram, Instagram, Aparat, YouTube, Twitch, custom | ✅ Implemented (alpha, keys required) |
+| External live input URL ingest | 🛠️ Planned |
 | Viewer analytics and advanced graphs | 🛠️ Planned |
 | Protected paid/private HLS | 🛠️ Planned |
+
+## 📡 Multistream: live on multiple platforms
+
+Send the same VPS-hosted channel to **Telegram, Instagram, Aparat, YouTube, Twitch**, and any compatible RTMP/RTMPS endpoint. StreamCore uses independent stream-copy relay processes, so every destination can be toggled separately.
+
+1. In the Persian admin dashboard, choose **پخش چندمقصدی**.
+2. Select the source channel and output platform.
+3. Obtain the official **Server URL** and **Stream Key** from the destination platform and save the destination.
+4. Enable the destination. Confirm the broadcast is accepted and visible in the destination platform's own producer/control interface.
+
+Stream Keys are encrypted in SQLite and never returned in the API. **Process-based output status is not proof that the remote platform has published the live.** Instagram is subject to account eligibility, session-specific credentials, stream-duration limits, and potentially an additional manual **Go Live** step. Every output currently receives the same H.264/AAC source without platform-specific resizing, vertical conversion, or transcoding. Read the [Multistream Guide](docs/MULTISTREAM.md) for precise steps and limitations.
 
 ## 🧱 Architecture
 
@@ -113,6 +125,7 @@ For full configuration and safety notes, see the [deployment guide](docs/DEPLOYM
 ## 🔐 Security and limitations
 
 - The admin panel uses signed session cookies and CSRF checks, but this **alpha has not undergone a security audit**.
+- Keep `SESSION_SECRET` stable to decrypt destination keys after updates. FFmpeg's runtime process arguments are visible to privileged users on the VPS.
 - Stream playback is **public** in this version; do not upload private or paid content without access controls.
 - Uploaded files must contain H.264 video. Video encoding/transcoding during broadcast is not automatic for file sources.
 - Actual viewer capacity depends primarily on VPS outbound bandwidth, bitrate, network quality, and whether a CDN is used.
@@ -124,14 +137,15 @@ For full configuration and safety notes, see the [deployment guide](docs/DEPLOYM
 - [ ] Run full end-to-end Docker/VPS smoke tests and UI visual QA
 - [ ] 24/7 playlist scheduler with queue management
 - [ ] RTSP, RTMP and SRT ingest with authorized source management
-- [ ] Multi-destination output and per-channel presets
+- [x] RTMP/RTMPS multi-destination output management (alpha)
+- [ ] Per-destination encoding presets, reliability telemetry, and verified platform health
 - [ ] Private viewer links, signed URLs and access policies
 - [ ] Accurate bitrate, traffic, concurrent viewer and service telemetry
 - [ ] Admin roles, event logs, backup and zero-downtime update workflow
 
 ## 📜 License and status
 
-**Development status:** v0.2.0 alpha — not yet validated for production deployment. No open-source license has been granted for this repository. All rights reserved unless a license is added.
+**Development status:** v0.3.0 alpha — not yet validated for production deployment. No open-source license has been granted for this repository. All rights reserved unless a license is added.
 
 <div align="center">
 
