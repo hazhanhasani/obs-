@@ -1,4 +1,10 @@
-# Mobile Scene Editor Debugging — StreamCore v0.5.2
+# Mobile Scene Editor Debugging — StreamCore v0.5.3
+
+A recorded Android reproduction showed the overlay geometry becoming smaller
+correctly, while two unrelated UI elements misleadingly made the scene appear
+unchanged: the entire canvas flashed orange and an oversized orange corner
+handle hid the shrunken logo. The new 14px visible handle sits on the layer
+boundary while its 42px transparent touch target remains usable.
 
 The editor should keep an image/video/text layer's size and location immediately
 after finger release. The **Save and apply** button is still required to persist
@@ -22,10 +28,10 @@ git log -1 --oneline
 ```
 
 Ensure that the resulting version label in the dashboard reads
-`v0.5.2`. The HTML uses these versioned assets:
+`v0.5.3`. The HTML uses these versioned assets:
 
-- `/assets/scene-editor.js?v=0.5.2`
-- `/assets/scene-editor.css?v=0.5.2`
+- `/assets/scene-editor.js?v=0.5.3`
+- `/assets/scene-editor.css?v=0.5.3`
 
 If your Android browser still uses the older script, reload the tab, close
 other copies of the dashboard, or clear **site-only** cached data for the
@@ -79,7 +85,7 @@ admin passwords, private stream keys, or the `.env` file.**
 
 ## Validation limits
 
-11 gesture and persistence regression scenarios have passed in a JavaScript
+12 gesture, CSS visibility and persistence regression scenarios have passed in a JavaScript
 simulation using the repository's exact editor source. CI also runs the
 Node.js regression suite. This does **not** replace live mobile browser QA or
 a real VPS deployment smoke test, both of which remain outstanding.
