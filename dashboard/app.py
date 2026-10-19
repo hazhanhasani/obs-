@@ -289,6 +289,7 @@ def overview():
         "channels": channels, "media": media,
         "destinations": destination_manager.public_rows(),
         "system": {"cpu": cpu, "ram": ram, "total_ram": round(psutil.virtual_memory().total / 1024**3, 1)},
+        "limits": {"max_upload_mb": MAX_MB},
         "time": int(time.time())
     }
 
@@ -368,38 +369,85 @@ def remove_channel(request: Request, channel: str):
     controller.stop(channel)
     return {"ok": True}
 
-@app.post("/api/media")
-async def upload(request: Request, file: UploadFile = File(...)):
-    authorize(request, unsafe=True)
-    original = Path(file.filename or "untitled").name
+async def save_media_stream(original: str, chunks):
+    """Write directly to persistent /media (without a second multipart temp copy)."""
+    original = Path(original or "").name.strip()
+    if not original or len(original.encode("utf-8")) > 255:
+        raise HTTPException(status_code=422, detail="نام فایل معتبر نیست.")
     suffix = Path(original).suffix.lower()
     if suffix not in VALID_EXT:
         raise HTTPException(status_code=422, detail="فرمت‌های مجاز MP4، MOV و MKV هستند.")
-    filename = secrets.token_hex(16) + suffix
-    destination = MEDIA / filename
+
+    stored_name = secrets.token_hex(16) + suffix
+    destination = MEDIA / stored_name
     total = 0
+    limit = MAX_MB * 1024 * 1024
     try:
         with destination.open("xb") as out:
-            while chunk := await file.read(1024 * 1024):
+            async for chunk in chunks:
+                if not chunk:
+                    continue
                 total += len(chunk)
-                if total > MAX_MB * 1024 * 1024:
-                    raise HTTPException(status_code=413, detail="حجم فایل بیشتر از محدودیت مجاز است.")
-                out.write(chunk)
+                if total > limit:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"حجم فایل از محدودیت {MAX_MB} مگابایت بیشتر است."
+                    )
+                await asyncio.to_thread(out.write, chunk)
+        if not total:
+            raise HTTPException(status_code=422, detail="فایل خالی است.")
         duration = await asyncio.to_thread(validate_media, destination)
         with connect() as db:
-            db.execute("INSERT INTO media(file,name,bytes,duration,created) VALUES(?,?,?,?,?)",
-                       (filename, original[:180], total, duration, int(time.time())))
-    except (HTTPException, ValueError) as error:
+            db.execute(
+                "INSERT INTO media(file,name,bytes,duration,created) VALUES(?,?,?,?,?)",
+                (stored_name, original[:180], total, duration, int(time.time()))
+            )
+    except ValueError as error:
         destination.unlink(missing_ok=True)
-        if isinstance(error, HTTPException):
-            raise
-        raise HTTPException(status_code=422, detail=str(error))
-    except Exception:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except OSError as error:
+        destination.unlink(missing_ok=True)
+        if error.errno == 28:
+            raise HTTPException(status_code=507, detail="فضای ذخیره‌سازی سرور کافی نیست.") from error
+        raise HTTPException(status_code=500, detail="خطا هنگام ذخیره فایل روی سرور.") from error
+    except BaseException:
         destination.unlink(missing_ok=True)
         raise
+    return {"ok": True, "name": original, "bytes": total, "duration": duration}
+
+
+@app.post("/api/media/raw")
+async def upload_raw(request: Request, filename: str):
+    """Streaming binary endpoint for reliable mobile uploads with progress events."""
+    authorize(request, unsafe=True)
+    declared = request.headers.get("content-length")
+    if declared:
+        try:
+            declared_size = int(declared)
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail="اندازه درخواست معتبر نیست.") from error
+        if declared_size > MAX_MB * 1024 * 1024:
+            raise HTTPException(status_code=413, detail=f"حجم فایل از محدودیت {MAX_MB} مگابایت بیشتر است.")
+    return await save_media_stream(filename, request.stream())
+
+
+@app.post("/api/media")
+async def upload(request: Request, file: UploadFile = File(...)):
+    """Backward-compatible multipart endpoint for existing clients."""
+    authorize(request, unsafe=True)
+
+    async def chunks():
+        while True:
+            chunk = await file.read(1024 * 1024)
+            if not chunk:
+                break
+            yield chunk
+
+    try:
+        return await save_media_stream(file.filename or "", chunks())
     finally:
         await file.close()
-    return {"ok": True, "name": original}
+
 
 @app.delete("/api/media/{media_id}")
 def delete_media(request: Request, media_id: int):
