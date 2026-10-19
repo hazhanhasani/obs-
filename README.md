@@ -6,7 +6,7 @@
 
 **Stream once. Run continuously. Manage from anywhere.**
 
-[![Version](https://img.shields.io/badge/version-0.6.1--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
+[![Version](https://img.shields.io/badge/version-0.6.2--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Self Hosted](https://img.shields.io/badge/deployment-self--hosted-172436?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Powered by](https://img.shields.io/badge/media-FFmpeg%20%2B%20MediaMTX-19bd93?style=flat-square)](https://github.com/hazhanhasani/obs-)
 
@@ -65,6 +65,31 @@ Unlike a traditional desktop-based streaming setup, **StreamCore runs its media 
 | External live input URL ingest | 🛠️ Planned |
 | Viewer analytics and advanced graphs | 🛠️ Planned |
 | Protected paid/private HLS | 🛠️ Planned |
+
+## 📺 Real test-source parity and draft visibility — v0.6.2-alpha
+
+**Why the editor could differ from Telegram:** The studio formerly displayed
+muted, CSS-generated color bars (25% opacity) while the server published
+FFmpeg's animated `testsrc2` at 1280×720. The user also captured a
+90%×90% overlay while the editor explicitly displayed **unsaved changes**;
+a live stream cannot be assumed to contain edits that have not been applied.
+
+- Studio now requests an **authenticated 1280×720 JPEG produced by the same
+  FFmpeg `testsrc2` input** as the actual compositor. The CSS color bars
+  remain solely as a fallback if that request fails.
+- A high-contrast, non-interactive **unpublished draft** overlay appears on
+  the canvas immediately after editing and disappears after the API confirms
+  that the scene is saved.
+- The FFmpeg image-comparison button, channel-to-Telegram binding diagnostics
+  and encoder telemetry from v0.6.1 remain available.
+- 18 browser-logic/touch regression scenarios passed in the source harness.
+  A separate authenticated real-FFmpeg test-pattern API regression was added.
+
+**Limitations:** A static frame cannot show every motion effect or the live
+clock on a test pattern. Telegram may buffer older HLS/RTMP-derived frames.
+A proper after-save parity check compares the current channel's FFmpeg output
+with its current configured Telegram destination. Live VPS and Android
+end-to-end verification remain pending.
 
 ## 🎯 Studio-to-live output parity — v0.6.1-alpha
 
