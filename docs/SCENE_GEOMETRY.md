@@ -33,3 +33,28 @@ remains an approximation of its media pixels.
 
 Saving changes may restart the channel compositor; back up and use an
 appropriate maintenance window.
+
+
+## Off-canvas scene items and four-corner Transform (v0.7.2)
+
+Canvas-relative positions **need not be in the output viewport**. We store
+-200..200% for X/Y and 5..200% for width/height (0.1% editor precision);
+this bound is a resource safety cap, not an alignment rule.
+
+For a 1280×720 landscape channel:
+- X=-10%, Y=40%, W=40%, H=20% yields an overlay 512×144px
+  placed at (-128, 288); the compositor clips its left 128 pixels.
+- X=150%, Y=110% places the entire source off-screen while retaining the
+  transform and allowing later entry/animation.
+- A four-corner gesture anchors the opposite edges of the initial source box.
+- The **مرکزچین لایه** action recovers fully hidden sources. Exact numeric
+  fields can also position them outside or inside the frame.
+- Output is clipped by FFmpeg's overlay compositor, not resized to 0..100%.
+
+The static CSS editor uses the same rectangle percentages, while the FFmpeg
+preview is authoritative for transparency, filter timing and source blending.
+
+Keep stream RTMP keys secret. These transforms are applied **before**
+sending the H.264/AAC stream to Telegram, so Telegram has no control over
+scene-item position. See official Telegram RTMP documentation:
+https://core.telegram.org/method/phone.getGroupCallStreamRtmpUrl
