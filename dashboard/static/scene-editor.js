@@ -7,10 +7,23 @@
   const safe=(x)=>String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   let api,overview,page,toast,appState;
   let channel=null,baseFile=null,layers=[],textLayers=[],selected=null,dirty=false,drag=null;
+  let canvasPreset="landscape";
   let pendingRender=false, saving=false, lastResize=null;
   let draftVersion=0, actualPreviewUrl=null, previewRendering=false;
   let media=[],loadSequence=0;
   const fieldNames=["x","y","w","h","opacity"];
+  const outputDimensions={landscape:[1280,720],portrait:[720,1280],portrait_fullhd:[1080,1920]};
+  const outputSize=()=>outputDimensions[canvasPreset]||outputDimensions.landscape;
+  function applyCanvas(){
+    const [w,h]=outputSize(),portrait=h>w;
+    const canvas=$("scene-canvas");
+    canvas.style.aspectRatio=w+"/"+h;
+    canvas.dataset.orientation=portrait?"portrait":"landscape";
+    $("scene-render-image").style.aspectRatio=w+"/"+h;
+    $("scene-resolution").textContent=w+" × "+h;
+    $("scene-ratio-heading").textContent="پیش‌نمایش چیدمان "+(portrait?"۹:۱۶":"۱۶:۹");
+    $("scene-canvas-preset").value=canvasPreset;
+  }
   const byFile=(name)=>media.find(m=>m.file===name);
   const getLayer=(id)=>layers.find(l=>l.layer_id===id)||textLayers.find(l=>l.layer_id===id);
   const isText=(l)=>!!l&&typeof l.text==="string";
@@ -42,7 +55,7 @@
   function fillChoices(){
     const choices=media.filter(m=>m.kind==="video").map(m=>'<option value="'+safe(m.file)+'">'+safe(m.name)+'</option>').join("");
     const selectedBase=baseFile;
-    $("scene-base").innerHTML='<option value="">پس‌زمینه آزمایشی 720p</option>'+choices;
+    $("scene-base").innerHTML='<option value="">پس‌زمینه آزمایشی متناسب با خروجی</option>'+choices;
     $("scene-base").value=selectedBase||"";
     const old=$("scene-media").value;
     $("scene-media").innerHTML=media.map(m=>'<option value="'+safe(m.file)+'">'+safe(m.name)+' ('+(m.kind==="image"?"تصویر":"ویدئو")+')</option>').join("")
@@ -58,7 +71,7 @@
     const bg=$("scene-base-image");
     // Use an actual FFmpeg testsrc2 frame, not muted CSS bars that disagree
     // with the published stream. Keep CSS bars only as an offline fallback.
-    const src=baseFile?poster(baseFile):"/api/scene/test-pattern";
+    const src=baseFile?poster(baseFile):"/api/scene/test-pattern?preset="+encodeURIComponent(canvasPreset);
     bg.onerror=()=>{bg.hidden=true;$("scene-colorbars").hidden=false;};
     if(src){
       if(bg.getAttribute?.("src")!==src)bg.src=src;
@@ -79,7 +92,7 @@
     const textHtml=textLayers.map((l,i)=>{
       const css='left:'+l.x+'%;top:'+l.y+'%;width:'+l.w+'%;height:'+l.h+'%;opacity:'+(l.opacity/100)+';';
       const bg=l.background==="transparent"?"transparent":safe(l.background);
-      const size=(l.font_size/1280*100).toFixed(3)+"cqw";
+      const size=(l.font_size/outputSize()[0]*100).toFixed(3)+"cqw";
       return '<div class="scene-item scene-text-item '+(selected===l.layer_id?"selected":"")+'" data-layer="'+safe(l.layer_id)+'" style="'+css+'" tabindex="0" role="button" aria-label="متن '+(i+1)+'">'
         +'<span class="scene-text-content" dir="auto" style="font-size:'+size+';color:'+safe(l.color)+';text-align:'+safe(l.align)+';background:'+bg+';">'+safe(l.text)+'</span>'
         +'<span class="scene-item-name">T'+(i+1)+'</span><span class="scene-handle" title="تغییر اندازه"></span></div>';
@@ -141,6 +154,9 @@
         ?"این صحنه روی کانال انتخاب‌شده ذخیره شده است. برای مشاهده تصویر واقعی FFmpeg روی «رندر خروجی» بزنید."
         :"این کانال هنوز روی حالت پخش صحنه نیست. بعد از ذخیره و اعمال صحنه، منبع آن به Scene تغییر می‌کند.";
       baseFile=scene.base_file;
+      canvasPreset=Object.prototype.hasOwnProperty.call(outputDimensions,scene.canvas_preset)
+        ?scene.canvas_preset:"landscape";
+      applyCanvas();
       layers=(scene.layers||[]).map(normalize);
       textLayers=(scene.text_layers||[]).map(normalize);
       selected=layers[0]?.layer_id||textLayers[0]?.layer_id||null;
@@ -281,7 +297,7 @@
         headers:{"Accept":"image/jpeg","Content-Type":"application/json",
           "X-CSRF-Token":appState?.csrf||""},
         credentials:"same-origin",
-        body:JSON.stringify({base_file:baseFile||null,layers,text_layers:textLayers})
+        body:JSON.stringify({base_file:baseFile||null,canvas_preset:canvasPreset,layers,text_layers:textLayers})
       });
       if(!response.ok){
         let message="رندر واقعی ناموفق بود (HTTP "+response.status+").";
@@ -316,13 +332,13 @@
     button.disabled=true;button.textContent="در حال ذخیره و اعمال...";
     try{
       const response=await api("/channels/"+encodeURIComponent(channel)+"/scene",{
-        method:"PUT",body:JSON.stringify({base_file:baseFile||null,layers,text_layers:textLayers})
+        method:"PUT",body:JSON.stringify({base_file:baseFile||null,canvas_preset:canvasPreset,layers,text_layers:textLayers})
       });
       // Only report success after the API returns persisted layer geometry.
       const remote=response.scene;
       const matches=(local,stored)=>Array.isArray(stored) && local.length===stored.length
         && local.every((l,index)=>["layer_id","x","y","w","h"].every(k=>String(l[k])===String(stored[index][k])));
-      if(!remote || !matches(layers,remote.layers) || !matches(textLayers,remote.text_layers)){
+      if(!remote || remote.canvas_preset!==canvasPreset || !matches(layers,remote.layers) || !matches(textLayers,remote.text_layers)){
         throw new Error("سرور اندازه لایه را مطابق درخواست ذخیره نکرد؛ وضعیت را دوباره بررسی کنید.");
       }
       resetDirty();
@@ -440,6 +456,11 @@
       if(target && target!==channel)await open(target);
     });
     $("scene-base").addEventListener("change",e=>{baseFile=e.target.value||null;markDirty();preview();});
+    $("scene-canvas-preset").addEventListener("change",e=>{
+      if(drag || saving)return;
+      if(!Object.prototype.hasOwnProperty.call(outputDimensions,e.target.value))return;
+      canvasPreset=e.target.value;applyCanvas();markDirty();preview();
+    });
     $("scene-toggle-safe").addEventListener("click",()=>{
       const guides=$("scene-safe-area");
       guides.hidden=!guides.hidden;
