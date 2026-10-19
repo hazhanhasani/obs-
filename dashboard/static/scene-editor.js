@@ -20,6 +20,7 @@
     canvas.style.aspectRatio=w+"/"+h;
     canvas.dataset.orientation=portrait?"portrait":"landscape";
     $("scene-render-image").style.aspectRatio=w+"/"+h;
+    $("scene-render-image").dataset.orientation=portrait?"portrait":"landscape";
     $("scene-resolution").textContent=w+" × "+h;
     $("scene-ratio-heading").textContent="پیش‌نمایش چیدمان "+(portrait?"۹:۱۶":"۱۶:۹");
     $("scene-canvas-preset").value=canvasPreset;
