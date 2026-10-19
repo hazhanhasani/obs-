@@ -204,7 +204,7 @@ test("touch cancellation retains geometry and versioned assets",async()=>{
   assert.equal(saved.h,35);
   assert.equal(h.window.StreamCoreScene.hasUnsaved(),false);
   const html=fs.readFileSync(path.join(__dirname,"../dashboard/static/index.html"),"utf8");
-  assert.match(html,/scene-editor\.js\?v=0\.5\.2/);
+  assert.match(html,/scene-editor\.js\?v=0\.5\.3/);
   assert.match(html,/id="scene-gesture-status"/);
   assert.match(html,/id="scene-preset-50"/);
 });
@@ -251,4 +251,18 @@ test("size preset near right edge repositions overlay rather than shrinking it",
   await h.save();
   assert.equal(h.saved().layers[0].x,25);
   assert.equal(h.saved().layers[0].w,75);
+});
+
+test("small mobile logo is not hidden by the resize handle or canvas highlight",()=>{
+  const css=fs.readFileSync(path.join(__dirname,"../dashboard/static/scene-editor.css"),"utf8");
+  const html=fs.readFileSync(path.join(__dirname,"../dashboard/static/index.html"),"utf8");
+  // Regression from user video: entire 16:9 canvas glowed orange on every drag.
+  assert.match(css,/\.scene-canvas\.scene-gesturing\{border-color:#435368;box-shadow:none\}/);
+  // The image must not clip the handle hanging outside its own bottom corner.
+  assert.match(css,/\.scene-item\{[^}]*overflow:visible;/);
+  // 14px visible dot, while the transparent 42px mobile hit area is large enough.
+  assert.match(css,/\.scene-handle::after\{[^}]*width:14px;height:14px;/);
+  assert.match(css,/\.scene-item \.scene-handle\{width:42px;height:42px;/);
+  assert.match(html,/scene-editor\.css\?v=0\.5\.3/);
+  assert.match(html,/scene-editor\.js\?v=0\.5\.3/);
 });
