@@ -144,7 +144,13 @@
     const bound=(overview.destinations||[]).filter(item=>item.channel_id===channel&&item.enabled);
     const otherTelegram=(overview.destinations||[]).filter(item=>
       item.platform==="telegram"&&item.enabled&&item.channel_id!==channel);
+    const button=$("scene-go-telegram");
+    const ids=[...new Set(otherTelegram.map(x=>x.channel_id))];
+    if(button){button.hidden=ids.length!==1;button.dataset.channel=ids.length===1?ids[0]:"";}
     const output=[];
+    if(chosen.encoder && ["stalled","no-data"].includes(chosen.encoder.state)){
+      output.push("⚠️ پردازش FFmpeg صحنه گزارش سالم ندارد ("+chosen.encoder.state+"). خروجی زنده ممکن است به‌روز نباشد.");
+    }
     if(chosen.mode!=="scene"){
       output.push("⚠️ کانال «"+channel+"» در حالت "+chosen.mode+
         " است؛ چیدمان استودیو تا هنگام ذخیره صحنه، منبع پخش نیست.");
@@ -158,7 +164,8 @@
     if(otherTelegram.length)output.push("⚠️ تلگرام فعال روی کانال دیگر: "+
       [...new Set(otherTelegram.map(x=>x.channel_id))].join("، "));
     node.textContent=output.join("\n");
-    node.dataset.warning=(chosen.mode!=="scene"||otherTelegram.length)?"true":"false";
+    node.dataset.warning=(chosen.mode!=="scene"||otherTelegram.length||
+      ["stalled","no-data"].includes(chosen.encoder?.state))?"true":"false";
   }
   function sync(data){
     overview=data;
@@ -416,6 +423,10 @@
   function init(deps){
     api=deps.api;toast=deps.toast;page=deps.page;appState=deps.state;
     $("scene-channel").addEventListener("change",e=>open(e.target.value));
+    $("scene-go-telegram").addEventListener("click",async()=>{
+      const target=$("scene-go-telegram").dataset.channel;
+      if(target && target!==channel)await open(target);
+    });
     $("scene-base").addEventListener("change",e=>{baseFile=e.target.value||null;markDirty();preview();});
     $("scene-add").addEventListener("click",addLayer);
     $("scene-add-text").addEventListener("click",addText);
