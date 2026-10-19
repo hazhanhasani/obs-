@@ -8,10 +8,10 @@
   <title>StreamCore | کنترل پخش زنده</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link rel="stylesheet" href="/assets/styles.css">
-  <link rel="stylesheet" href="/assets/scene-editor.css?v=0.7.0">
+  <link rel="stylesheet" href="/assets/scene-editor.css?v=0.7.1">
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.15/dist/hls.min.js" defer></script>
   <script src="/assets/app.js" defer></script>
-  <script src="/assets/scene-editor.js?v=0.7.0" defer></script>
+  <script src="/assets/scene-editor.js?v=0.7.1" defer></script>
 </head>
 <body>
 <section id="login-page" class="login-page" hidden>
@@ -45,7 +45,7 @@
     </nav>
     <div class="sidebar-footer">
       <div class="small-online"><span class="dot green"></span> سرویس مستقل روی VPS</div>
-      <small>نسخه آزمایشی v0.7.0</small>
+      <small>نسخه آزمایشی v0.7.1</small>
     </div>
   </aside>
 
@@ -144,10 +144,16 @@
         <p class="hint">اینستاگرام ممکن است به حساب واجد شرایط و کلید موقت Live Producer و تأیید نهایی Go Live نیاز داشته باشد.</p>
       </section>
       <section data-view="scene" hidden>
-        <div class="section-title"><div><p class="eyebrow">VISUAL SCENE COMPOSER / 1280 × 720</p><h2>استودیو چیدمان صحنه</h2></div><span class="caption-mini">ویدئوهای هم‌زمان + عکس + لوگو</span></div>
+        <div class="section-title"><div><p class="eyebrow">VISUAL SCENE COMPOSER / <span id="scene-resolution">1280 × 720</span></p><h2>استودیو چیدمان صحنه</h2></div><span class="caption-mini">ویدئوهای هم‌زمان + عکس + لوگو</span></div>
         <div class="panel">
           <div class="scene-panel-row">
             <div><label class="field-label" for="scene-channel">کانال پخش</label><select id="scene-channel" class="field"></select></div>
+            <div><label class="field-label" for="scene-canvas-preset">قالب خروجی کانال</label>
+            <select id="scene-canvas-preset" class="field">
+              <option value="landscape">افقی 16:9 — 1280×720</option>
+              <option value="portrait">عمودی 9:16 — 720×1280 (بهینه)</option>
+              <option value="portrait_fullhd">عمودی 9:16 — 1080×1920 (سنگین)</option>
+            </select></div>
             <div><label class="field-label" for="scene-base">ویدئوی پس‌زمینه (صدای اصلی)</label><select id="scene-base" class="field"></select></div>
             <div><label class="field-label" for="scene-media">عکس یا ویدئوی جدید</label><select id="scene-media" class="field"></select></div>
           </div>
@@ -163,7 +169,7 @@
         </div>
         <div class="scene-grid" style="margin-top:18px">
           <div class="panel">
-            <div class="panel-heading"><h3>پیش‌نمایش چیدمان ۱۶:۹</h3><span class="caption-mini">Drag / Resize · Output Parity 0.5.4</span></div>
+            <div class="panel-heading"><h3 id="scene-ratio-heading">پیش‌نمایش چیدمان ۱۶:۹</h3><span class="caption-mini">Drag / Resize · Output Parity 0.5.4</span></div>
             <div class="scene-canvas" id="scene-canvas">
               <div class="scene-test-bars" id="scene-colorbars"></div>
               <img id="scene-base-image" alt="پیش‌نمایش پس‌زمینه" hidden>
@@ -187,7 +193,7 @@
               </div>
               <p id="scene-render-status" class="scene-actual-status" aria-live="polite">قبل از انتشار، نمای خروجی واقعی را بررسی کنید. این کار پخش فعلی را متوقف نمی‌کند.</p>
               <img id="scene-render-image" class="scene-render-image" alt="خروجی رندرشده FFmpeg از چیدمان فعلی" hidden>
-              <p class="scene-actual-status">تصویر، اولین فریم خروجی ۱۲۸۰×۷۲۰ است؛ افکت‌ها و لایه‌های دارای زمان شروع دیرتر ممکن است در آن دیده نشوند. خروجی تلگرام ممکن است با تأخیر نمایش داده شود.</p>
+              <p class="scene-actual-status">تصویر، اولین فریم خروجی با ابعاد انتخاب‌شده است؛ افکت‌ها و لایه‌های دارای زمان شروع دیرتر ممکن است در آن دیده نشوند. خروجی تلگرام ممکن است با تأخیر نمایش داده شود.</p>
             </div>
             <p class="scene-tip">این پیش‌نمایش برای تنظیم محل و اندازه از تصاویر ثابت استفاده می‌کند. خروجی متحرک نهایی بعد از ذخیره در داشبورد نمایش داده می‌شود. برای تغییر اندازه گوشه نارنجی هر لایه را بکش.</p>
           </div>
