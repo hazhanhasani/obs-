@@ -140,3 +140,34 @@
 .scene-canvas.scene-gesturing .scene-item.selected{outline:1px solid #ff893e}
 .scene-handle{touch-action:none}
 .scene-handle::after{width:15px;height:15px}
+
+/* v0.7.3 — CSS specificity regression fix.
+   Historical .scene-item .scene-handle rules (including the 620px media rule)
+   overrode .scene-handle-{nw,ne,sw,se}, putting every grip at bottom-right.
+   These attribute-qualified selectors deliberately outrank BOTH defaults. */
+.scene-item .scene-handle[data-resize-corner="nw"]{
+  top:-18px;left:-18px;right:auto;bottom:auto;cursor:nwse-resize;
+}
+.scene-item .scene-handle[data-resize-corner="ne"]{
+  top:-18px;right:-18px;left:auto;bottom:auto;cursor:nesw-resize;
+}
+.scene-item .scene-handle[data-resize-corner="sw"]{
+  bottom:-18px;left:-18px;top:auto;right:auto;cursor:nesw-resize;
+}
+.scene-item .scene-handle[data-resize-corner="se"]{
+  bottom:-18px;right:-18px;top:auto;left:auto;cursor:nwse-resize;
+}
+@media(max-width:620px){
+  .scene-item .scene-handle[data-resize-corner="nw"]{
+    top:-21px;left:-21px;right:auto;bottom:auto;
+  }
+  .scene-item .scene-handle[data-resize-corner="ne"]{
+    top:-21px;right:-21px;left:auto;bottom:auto;
+  }
+  .scene-item .scene-handle[data-resize-corner="sw"]{
+    bottom:-21px;left:-21px;top:auto;right:auto;
+  }
+  .scene-item .scene-handle[data-resize-corner="se"]{
+    bottom:-21px;right:-21px;top:auto;left:auto;
+  }
+}
