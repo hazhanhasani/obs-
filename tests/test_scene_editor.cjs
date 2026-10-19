@@ -330,3 +330,26 @@ test("encoder stall is explicitly highlighted rather than represented as healthy
   assert.equal(node.dataset.warning,"true");
   assert.match(node.textContent,/پردازش FFmpeg/);
 });
+
+test("unsaved canvas is clearly marked as draft and live frames are not implied",async()=>{
+  const h=harness();await h.open();
+  const draft=h.document.getElementById("scene-draft-indicator");
+  assert.equal(draft.hidden,true);
+  h.root.dispatch("pointerdown",{target:h.handle,clientX:200,clientY:120});
+  h.root.dispatch("pointermove",{clientX:350,clientY:176.25});
+  h.root.dispatch("pointerup",{clientX:350,clientY:176.25});
+  assert.equal(draft.hidden,false,"unsaved changes must be visibly distinguished from output");
+  await h.save();
+  assert.equal(draft.hidden,true,"a server-confirmed save may clear the draft warning");
+});
+
+test("scene editor asks FFmpeg for the authentic test background",async()=>{
+  const h=harness();await h.open();
+  const source=h.document.getElementById("scene-base-image");
+  assert.equal(source.src,"/api/scene/test-pattern");
+  assert.equal(source.hidden,false);
+  assert.equal(h.document.getElementById("scene-colorbars").hidden,true);
+  source.onerror();
+  assert.equal(source.hidden,true);
+  assert.equal(h.document.getElementById("scene-colorbars").hidden,false);
+});
