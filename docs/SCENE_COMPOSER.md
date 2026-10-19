@@ -1,75 +1,86 @@
-# Visual Scene Composer — StreamCore v0.4.0-alpha
+# Visual Scene Composer — StreamCore v0.9.0-alpha
 
-**Compose multiple videos and images on one 1280×720 stream directly on the VPS.** No OBS, active browser, phone, or Windows PC is required after saving a scene and starting its channel.
+Compose videos, images and text on a VPS from a desktop or mobile browser.
+The browser edits a draft; FFmpeg renders the published scene independently.
 
-## What you can do
+## Edit a scene
 
-- Upload H.264 videos (`MP4`, `MOV`, `MKV`) and still images (`PNG`, `JPEG/JPG`, `WebP`).
-- Choose one looping **background video** or the generated test pattern.
-- Add up to **3 additional simultaneous video layers and 5 still image layers** (8 total).
-- Move and resize layers by dragging inside the **استودیو صحنه** 16:9 layout preview.
-- Set `X`, `Y`, `width`, `height` as percentages of the output canvas, plus opacity and display fit.
-- Use **Contain** for the entire uncropped image with transparent padding or **Cover** to fill the box and crop excess.
-- Change the stacking order, remove layers, then click **ذخیره و اعمال صحنه** to save everything.
-- View the *actual* HLS broadcast in **Dashboard**; the editor preview uses still image/video posters so it stays responsive even on phones.
+1. Select the channel, output preset, and background video (or test pattern).
+2. Add media or text. Limits are three videos, five images and five text sources.
+3. Drag a source body to move it. Drag an orange corner to resize freely; the
+   opposite corner stays fixed. Mid-edge controls resize one axis and appear
+   only when there is sufficient displayed space. Zoom in to expose them on
+   small sources. All corner targets remain 44 CSS pixels at any zoom.
+4. Use **Preserve aspect** (or hold Shift while resizing) to preserve the box's
+   initial ratio. Free independent width/height resizing remains the default.
+5. Enable **Snapping** for source/canvas edges and centers within six displayed
+   CSS pixels; Ctrl/Command temporarily bypasses it. Guides show matched edges.
+   Aspect-locked resizing takes priority over snapping to prevent ratio drift.
+6. Use numeric percentages for X/Y/Width/Height, including fully off-frame
+   sources. Fit restores intrinsic media aspect and fits to the output; Stretch
+   fills the output, Center repositions only, Reset box restores default size
+   at the canvas origin. For text, Fit preserves its current box ratio.
+7. The source list shows the topmost source first. Eye/lock controls toggle
+   visibility and editability. Up/down crosses media and text boundaries.
+8. Inspect **Render output** for a real FFmpeg frame, then **Save and apply**.
 
-Scene changes are stored in SQLite and preserved over restart. The existing per-channel FFmpeg process restarts when **Save and apply** is pressed, without changing its desired running state or deleting any output destination. Changes are not continuously sent to FFmpeg while dragging.
+Moving, resizing, adding/removing sources, properties, ordering, locks,
+visibility, background and orientation are undoable within the open editor
+(100 transactions). One drag is one transaction. Undo does not write to the
+server; explicitly save to publish the restored draft. History resets when a
+scene is loaded. It is not a cross-session or server-wide version archive.
 
-## How it works
+## Keyboard and navigation
 
-```text
-background video or generator ─── [scale/pad 1280x720] ───┐
-video layer 1 ─── [fps / scale / alpha / x,y] ─────────────┤
-video layer 2 ─── [fps / scale / alpha / x,y] ─────────────┤
-image layer ───── [repeat / scale / alpha / x,y] ─────────┤
-                                                           ↓
-                                                      FFmpeg overlay
-                                                           ↓
-                                                H.264 720p / AAC 25fps
-                                                           ↓
-                                            MediaMTX origin + HLS + relays
-                                                           ↓
-                                        Telegram / Aparat / Web / others
-```
+- Ctrl/Command+Z: undo; Ctrl/Command+Shift+Z or Ctrl/Command+Y: redo.
+- Escape: roll back the current gesture to its initial geometry.
+- Focus a source with Tab, then Enter/Space to select it.
+- Arrow keys: move a focused/selected source by one output pixel; Shift moves
+  ten. Positions are quantized to the existing 0.1% storage precision.
+- Delete/Backspace inside the canvas: remove an unlocked source.
+- Text inputs retain native caret movement, deletion and undo.
+- Zoom is local to the editor and never changes output presets or scene data.
+  Use the Hand tool to drag the editing viewport with mouse/pen or scroll
+  it natively with a finger, without transforming sources. Use numeric controls/Center for distant sources.
 
-FFmpeg encodes the **composited** video once; outward RTMP(S) destination relays use stream-copy of that output when the platform accepts H.264/AAC. CPU consumption depends on the number and resolutions of concurrent video layers; the 4-shared-vCPU VPS may require reducing to one or two video overlays.
+Locked sources cannot be dragged, resized, reordered, removed or changed via
+properties until unlocked. They still render normally. Hidden sources do not
+render or receive gestures and remain available in the source list. Locking is
+an editing aid, not an API access-control boundary.
 
-- Output: 1280x720, 25fps, H.264, ~2.5Mbps video, 128kbps AAC. The background audio track is used when available; otherwise silent AAC audio is generated. Other video layers are muted in the final stream.
-- Media never leaves the VPS unless the configured stream destinations send it.
-- Photos are checked with Pillow for actual format, dimensions and size before appearing in the library (max 12MB and 20 megapixels). Animated WebP is rejected.
-- In this alpha the encoder is **not adaptive**. It will not automatically make separate vertical streams for Instagram; independent 9:16 scene presets are a future feature.
-- Composition always re-encodes the final video; it cannot use `-c:v copy` for multiple visual inputs.
-- A scene's saved dimensions and positions are applied identically for all viewers. The editor is not a live remote screen-sharing canvas.
-- Changing/saving an active scene momentarily interrupts HLS/RTMP during encoder restart. There is no seamless transition or frame-accurate timeline yet.
-- The project has not been end-to-end verified on the user's VPS; run smoke tests before production.
+## Output and geometry
 
-## Secure image preview and upload
+Available outputs are 1280×720, 1920×1080, 720×1280 and 1080×1920 at 25fps.
+Changing orientation keeps stored percentages unchanged. X/Y may range from
+-200% to 200%, dimensions from 0.1% to 200%; output clips at the video frame.
+The limits cap resource consumption and do not force sources into the frame.
 
-Uploaded images and generated thumbnails are served via authenticated `/api/media/poster/<id>` and are never exposed via a public media directory. Paths are generated server-side and checked to remain under `/media`.
+The editor uses static posters and approximate text layout. **Render output**
+is the authoritative first FFmpeg frame, including actual text rasterization,
+source order, opacity and effects. Timed sources starting later may not appear
+in that first frame. HLS in the dashboard shows the moving stream with latency.
+Only the background supplies audio, with silence when it lacks audio; overlay
+videos are muted. Composition re-encodes once; destination relays stream-copy.
 
-An image in use as a layer cannot be deleted until removed from that scene. Video backgrounds likewise remain protected from accidental deletion.
+## Safe updates
 
-## Update (existing server)
-
-Before updating, finish ongoing uploads and schedule a short break in active streams:
+This version adds backend fields and additive SQLite columns. Deploy the full
+application image, not only its JS/CSS. Finish uploads and wait until channels
+are stopped; container recreation can interrupt running broadcasts.
 
 ```bash
 cd /opt/streamcore
-git pull --ff-only
-docker compose up -d --build
-docker compose ps
+git pull --ff-only origin main
+docker compose build dashboard
+# Only during the agreed idle maintenance window:
+docker compose up -d --no-deps dashboard
 ```
 
-Do not remove Docker volumes or the `.env` file; SQLite migrates existing media entries by adding a `kind` column when the dashboard starts.
+Do not remove volumes or `.env`. Back up SQLite before deployment. The stable
+release updater defers when any channel is desired=1 unless live updates were
+explicitly enabled; alpha/main changes are not automatically stable releases.
 
-## Operator smoke test
-
-1. Upload a small H.264 MP4 and a valid PNG.
-2. Open **استودیو صحنه**, choose background video or the test pattern.
-3. Add PNG and one extra MP4. Drag, resize and adjust opacity.
-4. Save the scene. Start the channel (or wait for restart if running).
-5. Open **Dashboard** and check HLS output. Inspect FFmpeg logs on the server when needed.
-6. Stop/start and restart the dashboard Docker service to confirm persistence.
-7. Verify that disabled multistream outputs do not send data.
-
-If video playback is choppy or the VPS CPU becomes saturated, reduce the number of simultaneous video layers before changing the output bitrate or encoder preset.
+**Save and apply can restart an active channel's compositor.** It is not a
+seamless OBS Studio Mode transition. Rendering an unpublished draft does not
+restart the channel. See [geometry](SCENE_GEOMETRY.md),
+[OBS comparison](OBS_EDITOR_PARITY.md) and [investigation](SCENE_TRANSFORM_INVESTIGATION.md).

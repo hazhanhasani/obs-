@@ -144,3 +144,26 @@ Reload the browser page to request the 0.8.1 versioned assets. Do not add
 `up`, `restart` or `down` to this frontend-only procedure during a live stream.
 This does not apply backend changes in future releases; those require the
 normal maintenance/update procedure.
+
+## 0.9.0 OBS-inspired interaction follow-up
+
+The native OBS source review is documented in `OBS_EDITOR_PARITY.md`. It led to
+an original geometry-first hit engine, eight handles, local transform history,
+optional aspect/snapping and a shared persisted source stack. It does not change
+the previously confirmed CSP and Chromium finite-contact root causes above.
+
+Additional defects confirmed while implementing the new controls:
+
+- Numeric aspect preservation independently clamped the paired dimension at
+  200%, distorting the ratio. Both dimensions now use the same bounded scale.
+- Reconstructing a history snapshot dropped keyboard focus. Pointerdown also
+  prevented normal source focus. Canvas focus is explicitly restored, including
+  click-then-arrow interaction tested with real browser input.
+- A very tall off-frame selection could place an orange handle over the toolbar
+  and intercept its clicks. The padded, scrollable editing viewport clips UI
+  overflow at its own boundary while leaving video-frame overflow and persisted
+  geometry unrestricted. This is independent of canvas clipping.
+
+All new tests use an isolated server; no live publisher is contacted. This is a
+backend update (metadata schema and composition), so the 0.8.1 frontend hot-copy
+procedure must not be used for 0.9.0. Deploy a complete image during idle time.

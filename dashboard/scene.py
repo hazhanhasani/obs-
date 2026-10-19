@@ -66,18 +66,37 @@ def init_scene_db(connect):
             PRIMARY KEY(channel_id,layer_id)
         )""")
 
+        # Additive migration: legacy scenes retain their geometry and their
+        # original media-then-text order until the operator reorders sources.
+        for table in ("scene_layers", "scene_text_layers"):
+            columns = {r["name"] for r in db.execute(f"PRAGMA table_info({table})")}
+            for name, declaration in (("locked", "INTEGER NOT NULL DEFAULT 0"),
+                                      ("visible", "INTEGER NOT NULL DEFAULT 1"),
+                                      ("z_index", "INTEGER")):
+                if name not in columns:
+                    db.execute(f"ALTER TABLE {table} ADD COLUMN {name} {declaration}")
+
+def _source_metadata(item):
+    return {**item, "locked": bool(item.get("locked", False)),
+            "visible": bool(item.get("visible", True))}
+
+def _validate_stack_ids(layers, texts):
+    ids = [l.layer_id for l in [*layers, *(texts or [])] if hasattr(l, "layer_id")]
+    if len(set(ids)) != len(ids):
+        raise ValueError("شناسه لایه تکراری است.")
+
 def scene_for(connect, channel):
     with connect() as db:
         row = db.execute("SELECT id,mode,file,desired FROM channels WHERE id=?", (channel,)).fetchone()
         if row is None:
             raise LookupError("کانال پیدا نشد.")
-        layers = [dict(x) for x in db.execute(
-            "SELECT layer_id,media_file,x,y,w,h,fit,opacity,effect,start_sec,duration_sec,repeat_sec,layer_order "
+        layers = [_source_metadata(dict(x)) for x in db.execute(
+            "SELECT layer_id,media_file,x,y,w,h,fit,opacity,effect,start_sec,duration_sec,repeat_sec,layer_order,locked,visible,z_index "
             "FROM scene_layers WHERE channel_id=? ORDER BY layer_order", (channel,)
         )]
-        text_layers = [dict(x) for x in db.execute(
+        text_layers = [_source_metadata(dict(x)) for x in db.execute(
             "SELECT layer_id,text,x,y,w,h,font_size,color,background,align,outline,"
-            "opacity,effect,start_sec,duration_sec,repeat_sec,layer_order "
+            "opacity,effect,start_sec,duration_sec,repeat_sec,layer_order,locked,visible,z_index "
             "FROM scene_text_layers WHERE channel_id=? ORDER BY layer_order", (channel,)
         )]
         preset_row = db.execute(
@@ -145,6 +164,7 @@ def validate_text_layers(items):
 
 def save_scene(connect, channel, base_file, layers, text_layers=None, canvas_preset=None):
     media=validate_scene(connect,base_file,layers)
+    _validate_stack_ids(layers, text_layers)
     if canvas_preset is not None:
         canvas_size(canvas_preset)
     if text_layers is not None:
@@ -152,25 +172,32 @@ def save_scene(connect, channel, base_file, layers, text_layers=None, canvas_pre
     with connect() as db:
         row=db.execute("SELECT id FROM channels WHERE id=?", (channel,)).fetchone()
         if not row: raise LookupError("کانال پیدا نشد.")
+        if text_layers is None:
+            existing_ids = {r["layer_id"] for r in db.execute(
+                "SELECT layer_id FROM scene_text_layers WHERE channel_id=?", (channel,))}
+            if existing_ids.intersection(l.layer_id for l in layers):
+                raise ValueError("شناسه لایه تکراری است.")
         db.execute("DELETE FROM scene_layers WHERE channel_id=?", (channel,))
         db.executemany(
             "INSERT INTO scene_layers(channel_id,layer_id,media_file,x,y,w,h,fit,opacity,"
-            "effect,start_sec,duration_sec,repeat_sec,layer_order)"
-            " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "effect,start_sec,duration_sec,repeat_sec,layer_order,locked,visible,z_index)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             [(channel,l.layer_id,l.media_file,l.x,l.y,l.w,l.h,l.fit,l.opacity,
               getattr(l,"effect","none"),getattr(l,"start_sec",0),
-              getattr(l,"duration_sec",0),getattr(l,"repeat_sec",0),i)
+              getattr(l,"duration_sec",0),getattr(l,"repeat_sec",0),i,
+              bool(getattr(l,"locked",False)),bool(getattr(l,"visible",True)),getattr(l,"z_index",None))
              for i,l in enumerate(layers)]
         )
         if text_layers is not None:
             db.execute("DELETE FROM scene_text_layers WHERE channel_id=?", (channel,))
             db.executemany(
                 "INSERT INTO scene_text_layers(channel_id,layer_id,text,x,y,w,h,font_size,"
-                "color,background,align,outline,opacity,effect,start_sec,duration_sec,repeat_sec,layer_order)"
-                " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "color,background,align,outline,opacity,effect,start_sec,duration_sec,repeat_sec,layer_order,locked,visible,z_index)"
+                " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 [(channel,t.layer_id,t.text,t.x,t.y,t.w,t.h,t.font_size,t.color,
                   t.background,t.align,t.outline,t.opacity,t.effect,t.start_sec,
-                  t.duration_sec,t.repeat_sec,i) for i,t in enumerate(text_layers)]
+                  t.duration_sec,t.repeat_sec,i,bool(getattr(t,"locked",False)),
+                  bool(getattr(t,"visible",True)),getattr(t,"z_index",None)) for i,t in enumerate(text_layers)]
             )
         if canvas_preset is not None:
             db.execute("""INSERT INTO scene_settings(channel_id,canvas_preset)
@@ -236,6 +263,7 @@ def preflight_scene(media_root, base_file, layers, text_layers, canvas_preset="l
     """Catch missing files, unsupported fonts and invalid filter expressions BEFORE
     persisting the new layout or interrupting an active channel.
     """
+    _validate_stack_ids(layers, text_layers)
     scene_encoder_profile()
     width, height = canvas_size(canvas_preset)
     if base_file:
@@ -263,13 +291,13 @@ def scene_command(connect, channel, base_file, media_root, target, text_cache=No
             media = [dict(r) for r in db.execute(
                 "SELECT sl.layer_id,sl.media_file,sl.x,sl.y,sl.w,sl.h,sl.fit,sl.opacity,"
                 "sl.effect,sl.start_sec,sl.duration_sec,sl.repeat_sec,"
-                "sl.layer_order,m.kind FROM scene_layers sl "
+                "sl.layer_order,sl.locked,sl.visible,sl.z_index,m.kind FROM scene_layers sl "
                 "JOIN media m ON m.file=sl.media_file WHERE sl.channel_id=? "
                 "ORDER BY sl.layer_order", (channel,)
             )]
             text_layers = [dict(r) for r in db.execute(
                 "SELECT layer_id,text,x,y,w,h,font_size,color,background,align,outline,"
-                "opacity,effect,start_sec,duration_sec,repeat_sec,layer_order "
+                "opacity,effect,start_sec,duration_sec,repeat_sec,layer_order,locked,visible,z_index "
                 "FROM scene_text_layers WHERE channel_id=? ORDER BY layer_order", (channel,)
             )]
     else:
@@ -295,30 +323,32 @@ def scene_command(connect, channel, base_file, media_root, target, text_cache=No
              "setsar=1,setpts=PTS-STARTPTS,format=rgba[v0]"]
     previous = "v0"
     overlay_index = 0
-    for layer in media:
-        filename = _media_file(media_root, layer["media_file"])
-        if layer["kind"] == "image":
-            args += ["-re", "-loop", "1", "-framerate", str(FPS), "-i", filename]
-        elif layer["kind"] == "video":
-            args += ["-re", "-stream_loop", "-1", "-i", filename]
-        else:
-            raise ValueError("نوع رسانه صحنه نامعتبر است.")
-        overlay_index += 1
-        graph.extend(effect_filters(layer, overlay_index, previous, overlay_index, width, height))
-        previous = f"v{overlay_index}"
     cache = Path(text_cache) if text_cache else Path(media_root).parent / "rendered_text"
-    for layer in text_layers:
-        # Only paths built from validated server-generated identifiers reach FFmpeg.
-        if not re.fullmatch(r"[a-z][a-z0-9_-]{2,39}", channel) or not re.fullmatch(
-            r"[a-z][a-z0-9_-]{2,35}", layer["layer_id"]
-        ):
-            raise ValueError("شناسه لایه متنی معتبر نیست.")
-        check_timing(layer["effect"],layer["start_sec"],layer["duration_sec"],layer["repeat_sec"])
-        image = render_text_layer(layer,cache / f"{channel}_{layer['layer_id']}.png", width, height)
-        args += ["-re", "-loop", "1", "-framerate", str(FPS), "-i", image]
+    combined = media + text_layers
+    # Python's stable sort matches the editor for legacy/null and tied indexes.
+    ordered = sorted(enumerate(combined), key=lambda entry:
+                     entry[1].get("z_index") if entry[1].get("z_index") is not None else entry[0])
+    for _, layer in ordered:
+        if not layer.get("visible", True):
+            continue
+        if "text" in layer:
+            if not re.fullmatch(r"[a-z][a-z0-9_-]{2,39}", channel) or not re.fullmatch(
+                r"[a-z][a-z0-9_-]{2,35}", layer["layer_id"]
+            ):
+                raise ValueError("شناسه لایه متنی معتبر نیست.")
+            check_timing(layer["effect"],layer["start_sec"],layer["duration_sec"],layer["repeat_sec"])
+            image = render_text_layer(layer,cache / f"{channel}_{layer['layer_id']}.png", width, height)
+            args += ["-re", "-loop", "1", "-framerate", str(FPS), "-i", image]
+            layer["fit"] = "contain"
+        else:
+            filename = _media_file(media_root, layer["media_file"])
+            if layer["kind"] == "image":
+                args += ["-re", "-loop", "1", "-framerate", str(FPS), "-i", filename]
+            elif layer["kind"] == "video":
+                args += ["-re", "-stream_loop", "-1", "-i", filename]
+            else:
+                raise ValueError("نوع رسانه صحنه نامعتبر است.")
         overlay_index += 1
-        # PNG was rendered at the final dimensions; keep its aspect ratio.
-        layer["fit"] = "contain"
         graph.extend(effect_filters(layer, overlay_index, previous, overlay_index, width, height))
         previous = f"v{overlay_index}"
     graph.append(f"[{previous}]format=yuv420p[vout]")

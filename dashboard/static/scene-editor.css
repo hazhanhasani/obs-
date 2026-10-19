@@ -148,3 +148,39 @@
 .scene-handle[data-resize-corner="se"]::after{left:0;top:0}
 .scene-item-name,.scene-video-chip,.scene-base-image,.scene-test-bars{pointer-events:none}
 .scene-gesturing .scene-handle::after{transform:none}
+
+/* OBS-inspired transform workspace. Edge grips never overlap corner targets. */
+.scene-handle[hidden]{display:none}
+.scene-handle[data-resize-corner="n"]{left:50%;bottom:100%;transform:translateX(-50%);cursor:ns-resize}
+.scene-handle[data-resize-corner="s"]{left:50%;top:100%;transform:translateX(-50%);cursor:ns-resize}
+.scene-handle[data-resize-corner="w"]{right:100%;top:50%;transform:translateY(-50%);cursor:ew-resize}
+.scene-handle[data-resize-corner="e"]{left:100%;top:50%;transform:translateY(-50%);cursor:ew-resize}
+.scene-handle[data-resize-corner="n"]::after{bottom:0}
+.scene-handle[data-resize-corner="s"]::after{top:0}
+.scene-handle[data-resize-corner="w"]::after{right:0}
+.scene-handle[data-resize-corner="e"]::after{left:0}
+.scene-item[data-locked="true"]{pointer-events:none;cursor:default;outline-color:#63768a}
+.scene-edit-toolbar,.scene-transform-commands{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.scene-edit-toolbar{margin-top:16px;padding-block:12px;border-block:1px solid #29394a}
+.scene-edit-toolbar button,.scene-transform-commands button{min-height:44px}
+.scene-edit-toolbar button[aria-pressed="true"]{background:#673820;border-color:#ff995e;color:#fff}
+.scene-edit-toolbar label{font-size:12px;color:#a6bacb}
+.scene-edit-toolbar #scene-zoom{width:92px;min-width:0;margin:0;direction:ltr}
+.scene-snap-guides{position:absolute;inset:0;pointer-events:none;z-index:25;overflow:visible}
+.scene-snap-guide{position:absolute;display:block;background:#2de6d0;pointer-events:none}
+.scene-snap-guide.x{top:0;height:100%;width:1px}
+.scene-snap-guide.y{left:0;width:100%;height:1px}
+.scene-workspace.scene-zoomed{overflow:auto;max-height:75vh;overscroll-behavior:contain}
+.scene-workspace.scene-zoomed .scene-canvas{margin-inline:0}
+@media(max-width:620px){
+  .scene-list-row{flex-wrap:wrap}
+  .scene-list-name{flex-basis:calc(100% - 45px)}
+  .scene-list-row .mini-action{min-width:44px;min-height:44px}
+  .scene-edit-toolbar button{flex:1 1 40%}
+}
+/* Sources can leave the video frame, but cannot cover property/tool buttons.
+   This is an editing viewport, not a constraint on saved source geometry. */
+.scene-workspace{overflow:auto;max-height:75vh;isolation:isolate}
+.scene-workspace.scene-pan-mode .scene-canvas{touch-action:auto;cursor:grab}
+.scene-workspace.scene-pan-mode .scene-items,.scene-workspace.scene-pan-mode .scene-handle{pointer-events:none}
+.scene-workspace.scene-panning .scene-canvas{cursor:grabbing}

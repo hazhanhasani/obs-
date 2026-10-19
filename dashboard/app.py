@@ -530,6 +530,9 @@ def delete_media(request: Request, media_id: int):
 
 
 class SceneLayerInput(BaseModel):
+    locked: bool = False
+    visible: bool = True
+    z_index: int | None = Field(default=None, ge=0, le=1000)
     layer_id: str = Field(pattern=r"^[a-z][a-z0-9_-]{2,35}$")
     media_file: str = Field(min_length=5, max_length=96)
     x: float = Field(ge=-200, le=200, allow_inf_nan=False)
@@ -545,6 +548,9 @@ class SceneLayerInput(BaseModel):
 
 
 class SceneTextInput(BaseModel):
+    locked: bool = False
+    visible: bool = True
+    z_index: int | None = Field(default=None, ge=0, le=1000)
     layer_id: str = Field(pattern=r"^[a-z][a-z0-9_-]{2,35}$")
     text: str = Field(min_length=1, max_length=240)
     x: float = Field(ge=-200, le=200, allow_inf_nan=False)

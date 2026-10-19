@@ -30,7 +30,12 @@ alignment difference. Geometry comparison allows at most 2 output pixels.
 | SW | Left, bottom | Top-right |
 | SE | Right, bottom | Top-left |
 
-Width and height change independently. Crossing the anchor stops at the
+N/S move only the top/bottom edge; W/E move only the left/right edge.
+The opposite edge stays fixed. Optional aspect preservation scales both axes;
+an edge handle keeps the orthogonal center fixed. Mid-edge targets require
+at least 88 displayed CSS pixels on their side and otherwise remain hidden.
+
+Width and height change independently by default. Crossing the anchor stops at the
 minimum size rather than flipping the source. A selected source has one
 independent control plane. Four outward 44px targets cannot overlap even for
 a tiny logo; controls remain opaque and above sources without changing their
@@ -50,7 +55,7 @@ Safe Area is a composition guide and never changes source coordinates.
 
 The persistent root captures pointers; window listeners continue a drag
 outside the frame. Pointer Events and legacy input are mutually exclusive.
-Cancellation, blur and page hiding retain the last valid draft and clean up
+Escape restores the gesture baseline; browser cancellation, blur and page hiding retain the last valid draft and clean up
 capture. They never implicitly save or restart a publisher. Polling cannot
 replace layer DOM during an active gesture. Releasing commits local geometry;
 **Save and apply** persists it and may restart that channel's compositor.
@@ -58,3 +63,9 @@ Use Render output to inspect actual FFmpeg pixels without publishing.
 
 For evidence, tests and deployment limitations see
 [the investigation](SCENE_TRANSFORM_INVESTIGATION.md).
+
+
+Visibility, locking and shared media/text ordering are described in the
+[editor guide](SCENE_COMPOSER.md). Zoom changes only the displayed canvas size,
+so hit testing and snapping always use its actual viewport rectangle. Aspect
+locking and snapping are opt-in editor tools, not persisted source transforms.

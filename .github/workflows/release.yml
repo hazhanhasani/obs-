@@ -30,7 +30,7 @@ jobs:
           bash tests/test_installer.sh
           node --check dashboard/static/app.js
           node --check dashboard/static/scene-editor.js
-          node --test tests/test_scene_editor.cjs
+          node --test tests/test_scene_editor.cjs tests/test_scene_transform.cjs
           node --test tests/test_telemetry_ui.cjs
           python -m compileall -q dashboard scripts
           cp .env.example .env

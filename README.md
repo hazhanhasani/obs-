@@ -6,7 +6,7 @@
 
 **Stream once. Run continuously. Manage from anywhere.**
 
-[![Version](https://img.shields.io/badge/version-0.7.3--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
+[![Version](https://img.shields.io/badge/version-0.9.0--alpha-ff5b13?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Self Hosted](https://img.shields.io/badge/deployment-self--hosted-172436?style=flat-square)](https://github.com/hazhanhasani/obs-)
 [![Powered by](https://img.shields.io/badge/media-FFmpeg%20%2B%20MediaMTX-19bd93?style=flat-square)](https://github.com/hazhanhasani/obs-)
 
@@ -47,7 +47,7 @@
 
 Unlike a traditional desktop-based streaming setup, **StreamCore runs its media pipeline on your own Linux VPS**. Your computer and phone do not need to stay online. The browser is only used to configure and monitor your streams.
 
-| Capability | v0.6.0 alpha |
+| Capability | v0.9.0 alpha |
 |:--|:--|
 | Server-generated live test broadcast | ✅ Implemented |
 | Upload H.264 videos and PNG/JPG/WebP still images | ✅ Implemented |
@@ -65,6 +65,28 @@ Unlike a traditional desktop-based streaming setup, **StreamCore runs its media 
 | External live input URL ingest | 🛠️ Planned |
 | Viewer analytics and advanced graphs | 🛠️ Planned |
 | Protected paid/private HLS | 🛠️ Planned |
+
+## OBS-inspired scene editing — v0.9.0-alpha
+
+The web scene editor now has eight resize controls, geometry-first source/handle
+picking, optional aspect preservation and snapping, 100-step undo/redo, keyboard
+nudging, zoom, fit/stretch commands, source locks and visibility. Text and media
+share a single composition order in the browser and the actual FFmpeg graph.
+Four outward 44px corner targets remain usable for tiny sources; edge controls
+appear when displayed space permits. Positions may extend beyond the output.
+
+[Scene editor guide](docs/SCENE_COMPOSER.md) ·
+[Geometry contract](docs/SCENE_GEOMETRY.md) ·
+[OBS source comparison and limitations](docs/OBS_EDITOR_PARITY.md)
+
+The editor is a browser implementation, not a port of native OBS. Rotation,
+cropping, groups, multi-selection and seamless Preview/Program switching are
+not implemented. Desktop Chromium with emulated touch is tested; physical
+Android verification remains pending. This update changes the backend as well
+as static assets: deploy the complete image during a maintenance window.
+Do not use the earlier frontend-only hot-copy procedure for this version.
+
+### Historical scene-editor fixes
 
 ## 📱 Four-corner mobile touch hotfix — v0.7.3-alpha
 
@@ -99,7 +121,7 @@ and window-event fallback. The editable bounds may extend off-screen; **the
 encoded video always clips to the selected output frame**.
 
 - X/Y can be from -200% to +200% of the output canvas, in 0.1% increments.
-- Width/height can be from 5% to 200% of the canvas, in 0.1% increments.
+- Width/height can be from 0.1% to 200% of the canvas, in 0.1% increments.
 - Numeric Transform controls work even when a layer is fully outside view.
   Use **مرکزچین لایه** to recover it without deleting it.
 - Server validation, SQLite persistence, FFmpeg scaling and overlays all

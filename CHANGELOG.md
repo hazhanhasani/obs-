@@ -4,6 +4,36 @@ All significant StreamCore changes are documented here.
 
 This project is still in alpha; stable release guarantees and migration automation are not yet available.
 
+## [0.9.0-alpha] — 2026-10-19
+
+### Added
+- OBS-inspired geometry-first picking and eight resize handles, with fixed
+  opposite edges, adaptive non-overlapping edge controls and 44px corner targets.
+- Explicit aspect preservation, optional CSS-pixel snapping with guides and
+  Ctrl/Command bypass, 100-step undo/redo and Escape gesture rollback.
+- Keyboard source selection, pixel-based nudging, delete and undo/redo shortcuts;
+  text fields retain native keyboard editing.
+- Editor-only zoom and mouse/pen/native-touch hand navigation, intrinsic-aspect
+  Fit, Stretch, center and default-box reset.
+- Persisted source locking, visibility and shared media/text stacking. Additive
+  SQLite migrations preserve existing coordinates and legacy composition order.
+- One FFmpeg source composition loop shared by previews and published output;
+  hidden sources remain saved but are not decoded or composited.
+
+### Fixed
+- Keep keyboard focus in the canvas after history restoration.
+- Verify every supplied source property in save responses, not only geometry.
+- Reject duplicate identifiers across media and text before persistence.
+- Invalidate scene assets with 0.9.0 versions and update the displayed version.
+
+### Validation and rollout
+- Add pure transform/history, SQLite migration, and real browser input tests,
+  including decoded FFmpeg pixels for mixed source order and hidden layers.
+- Full backend deployment is required during an idle maintenance window;
+  frontend-only copying is insufficient. No live installation is restarted.
+- This remains an alpha web editor; no physical Android verification or native
+  OBS feature parity is claimed. See `docs/OBS_EDITOR_PARITY.md`.
+
 ## [0.8.1-alpha] — 2026-10-19
 
 ### Fixed

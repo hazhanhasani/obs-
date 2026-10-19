@@ -57,8 +57,14 @@ async function setup(width=1080,preset='landscape',layers=[layer()],touch=false,
   }
   async function saveReload(){
     const g=await assertVisual();
+    const responsePromise=page.waitForResponse(r=>r.url().endsWith('/scene')&&r.request().method()==='PUT');
     await page.locator('#scene-save').click();
-    await page.waitForFunction(()=>!window.StreamCoreScene.hasUnsaved());
+    const response=await responsePromise;
+    assert.equal(response.status(),200,await response.text());
+    await page.waitForFunction(()=>!window.StreamCoreScene.hasUnsaved(),null,{timeout:10000}).catch(async error=>{
+      throw new Error('Save did not settle: '+JSON.stringify({response:await response.json(),
+        geometry:await geometry(),toast:await page.locator('#toast').textContent()})+'; '+error.message);
+    });
     const stored=await (await page.request.get(url+'/api/channels/main/scene')).json();
     for(const k of ['x','y','w','h'])assert.equal((stored.layers[0]||stored.text_layers[0])[k],g[k],k+' SQLite persistence');
     await page.reload();await openEditor();
@@ -66,6 +72,7 @@ async function setup(width=1080,preset='landscape',layers=[layer()],touch=false,
     assert.deepEqual(await assertVisual(),g,'reload must preserve geometry');
   }
   async function finish(){
+    if(process.env.SCENE_SCREENSHOT)await page.locator('.scene-grid > .panel').first().screenshot({path:process.env.SCENE_SCREENSHOT});
     assert.deepEqual(errors,[],'browser errors');
     assert.deepEqual(await page.evaluate(()=>window.gestureCancels),[], 'unexpected pointercancel');
     await context.close();
@@ -332,5 +339,201 @@ for(const corner of ['nw','ne','sw','se'])test(`Android finger contact ${width} 
       assert.ok(Math.abs((corner.includes('n')?g.y+g.h:g.y)-(corner.includes('n')?before.y+before.h:before.y))<.15,'finger fixed Y edge');
     }
     await cdp.detach();await h.saveReload();await h.finish();
+  }catch(e){await h.context.close();throw e;}
+});
+
+for(const [width,touch,preset] of [[1600,false,'landscape'],[360,true,'portrait'],[390,true,'portrait'],[430,true,'portrait']]){
+  for(const edge of ['n','e','s','w'])test(`OBS ${width} ${edge}: edge-only transform and history`,async()=>{
+    const h=await setup(width,preset,[layer({x:10,y:10,w:80,h:80})],touch);
+    try{
+      const before=await h.geometry(),b=await h.page.locator('#scene-items').boundingBox();
+      await drag(h.page,`[data-resize-corner="${edge}"]`,b.width*.04,b.height*.04,touch);
+      const g=await h.assertVisual();
+      if(['n','s'].includes(edge)){assert.equal(g.w,80);assert.equal(g.x,10);assert.ok(g.h!==80);}
+      else {assert.equal(g.h,80);assert.equal(g.y,10);assert.ok(g.w!==80);}
+      await h.page.locator('#scene-undo').click();assert.deepEqual(await h.geometry(),before);
+      await h.page.locator('#scene-redo').click();assert.deepEqual(await h.geometry(),g);
+      await h.saveReload();await h.finish();
+    }catch(e){await h.context.close();throw e;}
+  });
+}
+test('OBS geometry-first handle detection survives a non-handle DOM target',async()=>{
+  const h=await setup(1080);
+  try{
+    // Remove handle hit testing only. Native input must still pick the corner
+    // geometrically when the browser targets the persistent canvas root.
+    await h.page.evaluate(()=>document.querySelectorAll('.scene-handle').forEach(el=>el.style.pointerEvents='none'));
+    const frame=await h.page.locator('#scene-items').boundingBox(),g=await h.geometry();
+    const x=frame.x+frame.width*g.x/100-4,y=frame.y+frame.height*g.y/100-4;
+    await h.page.mouse.move(x,y);await h.page.mouse.down();
+    await h.page.mouse.move(x-15,y-10,{steps:5});await h.page.mouse.up();
+    const after=await h.geometry();assert.ok(after.w>g.w);assert.ok(after.h>g.h);
+    assert.ok(Math.abs(after.x+after.w-g.x-g.w)<.15);await h.finish();
+  }catch(e){await h.context.close();throw e;}
+});
+test('OBS aspect lock, Escape rollback, keyboard undo and pixel nudge',async()=>{
+  const h=await setup(1080);
+  try{
+    await h.page.locator('#scene-aspect').click();
+    await drag(h.page,'[data-resize-corner="se"]',25,5);
+    const g=await h.geometry();assert.ok(Math.abs(g.w/g.h-1)<.01);
+    const b=await h.page.locator('[data-resize-corner="se"]').boundingBox();
+    await h.page.mouse.move(b.x+22,b.y+22);await h.page.mouse.down();
+    await h.page.mouse.move(b.x+45,b.y+33);
+    await h.page.keyboard.press('Escape');await h.page.mouse.up();
+    assert.deepEqual(await h.geometry(),g);
+    await h.page.locator('.scene-item.selected').focus();
+    await h.page.keyboard.press('Control+z');assert.equal((await h.geometry()).w,40);
+    await h.page.keyboard.press('Control+Shift+z');assert.deepEqual(await h.geometry(),g);
+    await h.page.keyboard.press('Shift+ArrowRight');
+    assert.ok(Math.abs((await h.geometry()).x-g.x-10/1280*100)<.11);
+    await h.page.locator('#scene-x').fill('12');
+    await h.page.keyboard.press('ArrowRight'); // native caret, never source movement
+    await h.page.locator('#scene-x').press('Tab');assert.equal((await h.geometry()).x,12);
+    await h.finish();
+  }catch(e){await h.context.close();throw e;}
+});
+test('OBS locks and visibility persist; locked overlay cannot intercept an unlocked source',async()=>{
+  const h=await setup(1080,'landscape',[layer(),layer({layer_id:'top_locked',x:10,y:10,w:80,h:80,locked:true})]);
+  try{
+    const g=await h.geometry();
+    await drag(h.page,'.scene-item[data-layer="logo_test"]',10,10);
+    assert.ok((await h.geometry()).x>g.x);
+    await h.page.locator('[data-layer-lock="logo_test"]').click();
+    assert.equal(await h.page.locator('.scene-transform').count(),0);
+    assert.equal(await h.page.locator('#scene-x').isDisabled(),true);
+    await h.page.locator('[data-layer-visible="logo_test"]').click();
+    assert.equal(await h.page.locator('.scene-item[data-layer="logo_test"]').count(),0);
+    await h.page.locator('#scene-save').click();await h.page.waitForFunction(()=>!window.StreamCoreScene.hasUnsaved());
+    const data=await (await h.page.request.get(url+'/api/channels/main/scene')).json();
+    assert.equal(data.layers[0].locked,true);assert.equal(data.layers[0].visible,false);
+    await h.page.reload();await h.page.locator('#app').waitFor({state:'visible'});
+    await h.page.locator('[data-page="scene"]').click();
+    await h.page.locator('[data-layer-visible="logo_test"]').waitFor();
+    assert.equal(await h.page.locator('.scene-item[data-layer="logo_test"]').count(),0);
+    await h.finish();
+  }catch(e){await h.context.close();throw e;}
+});
+test('OBS zoom changes displayed scale without changing saved geometry; fit/stretch are undoable',async()=>{
+  const h=await setup(1080,'portrait');
+  try{
+    const before=await h.geometry(),old=await h.page.locator('#scene-items').boundingBox();
+    await h.page.locator('#scene-zoom').selectOption('1.5');
+    const zoomed=await h.page.locator('#scene-items').boundingBox();
+    assert.ok(Math.abs(zoomed.width/old.width-1.5)<.02);assert.deepEqual(await h.geometry(),before);
+    await drag(h.page,'[data-resize-corner="se"]',zoomed.width*.05,zoomed.height*.03);
+    assert.ok(Math.abs((await h.geometry()).w-45)<.2);
+    await h.page.locator('#scene-stretch-selected').click();
+    assert.deepEqual(await h.geometry(),{x:0,y:0,w:100,h:100});
+    await h.page.locator('#scene-undo').click();assert.ok(Math.abs((await h.geometry()).w-45)<.2);
+    await h.page.locator('#scene-fit-selected').click();
+    const fit=await h.geometry();assert.ok(fit.w<=100&&fit.h<=100);assert.ok(fit.w===100||fit.h===100);
+    await h.saveReload();await h.finish();
+  }catch(e){await h.context.close();throw e;}
+});
+test('OBS optional snapping aligns to frame edge and Ctrl bypass remains free',async()=>{
+  const h=await setup(1600,'landscape',[layer({x:20,y:25})]);
+  try{
+    await h.page.locator('#scene-snapping').click();
+    const b=await h.page.locator('#scene-items').boundingBox();
+    await drag(h.page,'.scene-item.selected',-b.width*.2+2,0);
+    assert.equal((await h.geometry()).x,0);
+    await h.page.keyboard.down('Control');
+    await drag(h.page,'.scene-item.selected',-3,0);
+    await h.page.keyboard.up('Control');assert.ok((await h.geometry()).x<0);
+    await h.finish();
+  }catch(e){await h.context.close();throw e;}
+});
+
+test('OBS fit uses intrinsic source aspect rather than a previously distorted box',async()=>{
+  const h=await setup(1080,'portrait',[layer({w:70,h:15,fit:'stretch'})]);
+  try{
+    await h.page.locator('.scene-item img').evaluate(img=>img.decode());
+    await h.page.locator('#scene-fit-selected').click();
+    const g=await h.geometry();
+    assert.equal(g.w,100);assert.ok(Math.abs(g.h-56.25)<.11,JSON.stringify(g));
+    assert.equal(await h.page.locator('#scene-fit').inputValue(),'contain');
+    await h.finish();
+  }catch(e){await h.context.close();throw e;}
+});
+test('OBS shared media/text order and visibility match decoded FFmpeg pixels',async()=>{
+  const text={layer_id:'text_blue',text:'OBS',x:20,y:25,w:40,h:40,font_size:20,color:'#ffffff',
+    background:'#0000ff',align:'center',outline:0,opacity:100,effect:'none',start_sec:0,duration_sec:0,repeat_sec:0};
+  const h=await setup(1080,'landscape',[layer()],false,[text]);
+  try{
+    async function pixel(){
+      await h.page.locator('#scene-render-actual').click();
+      await h.page.locator('#scene-render-image').waitFor({state:'visible'});
+      return h.page.locator('#scene-render-image').evaluate(async img=>{
+        await img.decode();const canvas=document.createElement('canvas');canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;
+        const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0);
+        return [...ctx.getImageData(Math.round(canvas.width*.3),Math.round(canvas.height*.3),1,1).data];
+      });
+    }
+    const blue=await pixel();assert.ok(blue[2]>blue[0]+100,JSON.stringify(blue));
+    await h.page.locator('[data-layer-up="logo_test"]').click();
+    assert.ok(Number(await h.page.locator('.scene-item[data-layer="logo_test"]').evaluate(el=>el.style.zIndex))>
+      Number(await h.page.locator('.scene-item[data-layer="text_blue"]').evaluate(el=>el.style.zIndex)));
+    const red=await pixel();assert.ok(red[0]>200&&red[2]<80,JSON.stringify(red));
+    await h.page.locator('[data-layer-visible="logo_test"]').click();
+    const hidden=await pixel();assert.ok(hidden[2]>hidden[0]+100,JSON.stringify(hidden));
+    await h.page.locator('#scene-save').click();await h.page.waitForFunction(()=>!window.StreamCoreScene.hasUnsaved());
+    const data=await (await h.page.request.get(url+'/api/channels/main/scene')).json();
+    assert.equal(data.layers[0].visible,false);assert.ok(data.layers[0].z_index>data.text_layers[0].z_index);
+    await h.finish();
+  }catch(e){await h.context.close();throw e;}
+});
+test('OBS numeric aspect lock limits both dimensions together',async()=>{
+  const h=await setup(1080,'landscape',[layer({w:20,h:100})]);
+  try{
+    await h.page.locator('#scene-aspect').click();
+    await h.page.locator('#scene-w').fill('100');await h.page.locator('#scene-w').press('Tab');
+    const g=await h.geometry();assert.equal(g.w,40);assert.equal(g.h,200);
+    await h.saveReload();await h.finish();
+  }catch(e){await h.context.close();throw e;}
+});
+test('OBS clicking a source transfers keyboard editing focus to the canvas',async()=>{
+  const h=await setup(1080);
+  try{
+    const g=await h.geometry();
+    await h.page.locator('.scene-item.selected').click();
+    await h.page.keyboard.press('Shift+ArrowRight');
+    assert.ok((await h.geometry()).x>g.x,'click then arrow must nudge without manually focusing the root');
+    await h.finish();
+  }catch(e){await h.context.close();throw e;}
+});
+test('OBS hand tool pans an enlarged workspace without moving sources',async()=>{
+  const h=await setup(1080,'portrait');
+  try{
+    await h.page.locator('#scene-zoom').selectOption('2');
+    await h.page.locator('#scene-pan').click();
+    const g=await h.geometry(),workspace=h.page.locator('.scene-workspace');
+    await workspace.scrollIntoViewIfNeeded();const b=await workspace.boundingBox();
+    const before=await workspace.evaluate(el=>[el.scrollLeft,el.scrollTop]);
+    await h.page.mouse.move(b.x+b.width/2,b.y+100);await h.page.mouse.down();
+    await h.page.mouse.move(b.x+b.width/2-50,b.y+40,{steps:6});await h.page.mouse.up();
+    const after=await workspace.evaluate(el=>[el.scrollLeft,el.scrollTop]);
+    assert.ok(after[0]>before[0]||after[1]>before[1],JSON.stringify({before,after}));
+    assert.deepEqual(await h.geometry(),g);await h.finish();
+  }catch(e){await h.context.close();throw e;}
+});
+test('OBS mobile hand tool scrolls with native touch without transforming a source',async()=>{
+  const h=await setup(390,'portrait',[layer()],true);
+  try{
+    await h.page.locator('#scene-zoom').selectOption('2');await h.page.locator('#scene-pan').tap();
+    const g=await h.geometry(),workspace=h.page.locator('.scene-workspace');
+    await workspace.scrollIntoViewIfNeeded();const b=await workspace.boundingBox();
+    const before=await workspace.evaluate(el=>el.scrollTop),cdp=await h.context.newCDPSession(h.page);
+    const x=b.x+b.width/2,y=Math.min(900,b.y+b.height/2);
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:1}]});
+    for(let i=1;i<=8;i++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-i*10,id:1}]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await cdp.detach();
+    await h.page.waitForFunction(value=>document.querySelector('.scene-workspace').scrollTop>value,before);
+    assert.deepEqual(await h.geometry(),g);
+    // Native scrolling deliberately cancels the browser pointer stream. This
+    // is not a canceled source gesture: the hand tool disables source picking.
+    const cancels=await h.page.evaluate(()=>window.gestureCancels);
+    assert.ok(cancels.every(type=>type==='touch'));
+    await h.page.evaluate(()=>window.gestureCancels=[]);await h.finish();
   }catch(e){await h.context.close();throw e;}
 });
