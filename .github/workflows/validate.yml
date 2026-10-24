@@ -20,6 +20,10 @@ jobs:
           bash -n scripts/install-updater.sh
           python3 -m py_compile scripts/release-check.py
           bash tests/test_installer.sh
+          node --test telegram-serverless/tests/*.test.js
+          node --check telegram-serverless/tgcloud/handlers/message.js
+          node --check telegram-serverless/tgcloud/handlers/callback_query.js
+          node --check telegram-serverless/public/app.js
           node --check dashboard/static/app.js
           node --check dashboard/static/scene-editor.js
           node --test tests/test_scene_editor.cjs tests/test_scene_transform.cjs
