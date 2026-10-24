@@ -97,3 +97,17 @@ Current implementation is **alpha**. It requires real VPS systemd, GitHub
 Release, backup, failure-injection and rollback validation before calling it
 production-ready. For sensitive, paid or nonstop live content, maintain a
 manual maintenance window until those checks pass.
+
+## Low-resource Telegram VPS profile
+
+If `scripts/telegram-free-setup.sh --apply --acknowledge-stream-interruption`
+succeeds, it creates a private gitignored
+`.streamcore-telegram-free-profile` marker. The stable-release updater then
+uses `compose.yaml` **and** `compose.telegram-free.yaml` during stream-state
+checks, database backup, deployment, health checks and rollback. This prevents
+an automatic release from silently dropping the reduced-bitrate profile.
+
+The marker does not change the live-interruption policy or make a low-end
+free VPS suitable for guaranteed continuous transcoding. To switch back to
+normal Compose, stop streams, deploy the standard profile and remove the
+marker as documented in [Telegram free VPS guide](TELEGRAM_FREE_SERVER.md).

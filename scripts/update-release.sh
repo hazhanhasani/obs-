@@ -21,6 +21,14 @@ stop(){ say "ERROR: $*" >&2; exit 1; }
 exec 9>/run/lock/streamcore-update.lock
 flock -n 9 || { say "Update already running"; exit 0; }
 cd "$APP"
+# A deployment-local, gitignored marker preserves the opt-in low-resource
+# Compose overlay across future stable releases and rollback.
+COMPOSE=(docker compose)
+if [[ -f .streamcore-telegram-free-profile ]]; then
+  [[ -f compose.telegram-free.yaml ]] ||
+    stop "Telegram free profile is enabled, but its Compose overlay is missing."
+  COMPOSE=(docker compose -f compose.yaml -f compose.telegram-free.yaml)
+fi
 setting(){ sed -n "s/^$1=//p" .env | head -1 | tr -d '\r'; }
 [[ "$(setting AUTO_UPDATE_ENABLED)" != "false" ]] || exit 0
 tag="$(python3 scripts/release-check.py VERSION 2>/dev/null)" ||
@@ -37,7 +45,7 @@ release_version="$(git show "$target:VERSION" | tr -d '[:space:]')"
 [[ "$release_version" == "$tag" || "v$release_version" == "$tag" ]] ||
   stop "Tag and VERSION mismatch."
 if [[ "$(setting AUTO_UPDATE_ALLOW_LIVE)" != "true" ]]; then
-  desired="$(docker compose exec -T dashboard python3 -c '
+  desired="$("${COMPOSE[@]}" exec -T dashboard python3 -c '
 import sqlite3
 with sqlite3.connect("/data/streamcore.sqlite3") as db:
  print(db.execute("SELECT count(*) FROM channels WHERE desired=1").fetchone()[0])
@@ -56,10 +64,10 @@ backup="$BACKUPS/$stamp"
 install -d -m 0700 "$backup"
 cp -p .env "$backup/dot-env"
 printf '%s\n' "$old" > "$backup/previous-commit"
-container="$(docker compose ps -q dashboard)"
+container="$("${COMPOSE[@]}" ps -q dashboard)"
 [[ -n "$container" ]] || stop "Dashboard must run for a safe SQLite backup."
 db_staging="/tmp/streamcore-update-${stamp}.sqlite3"
-docker compose exec -T dashboard python3 - "$db_staging" <<'PY' ||
+"${COMPOSE[@]}" exec -T dashboard python3 - "$db_staging" <<'PY' ||
   stop "Database backup failed."
 import sqlite3
 import sys
@@ -71,7 +79,7 @@ with sqlite3.connect(source) as src, sqlite3.connect(sys.argv[1]) as dst:
 PY
 docker cp "$container:$db_staging" "$backup/database.sqlite3" ||
   stop "Cannot export SQLite backup."
-docker compose exec -T dashboard rm -f -- "$db_staging" ||
+"${COMPOSE[@]}" exec -T dashboard rm -f -- "$db_staging" ||
   stop "Could not remove temporary snapshot from container."
 chmod 600 "$backup/"*
 say "Private database and env backup: $backup"
@@ -84,18 +92,18 @@ rollback(){
   # Checking out main alone leaves it at the failed release's commit.
   # The worktree was checked clean before deployment; restore its exact SHA.
   git reset --hard --quiet "$old" || { say "Cannot restore original commit."; exit 1; }
-  docker compose up -d --build || true
+  "${COMPOSE[@]}" up -d --build || true
   say "Database backup retained separately at $backup (not overwritten)."
   exit 1
 }
 trap rollback ERR
 git merge --ff-only --quiet "$target"
-docker compose config --quiet
-docker compose build dashboard
-docker compose up -d
+"${COMPOSE[@]}" config --quiet
+"${COMPOSE[@]}" build dashboard
+"${COMPOSE[@]}" up -d
 healthy=false
 for attempt in $(seq 1 30); do
-  if docker compose exec -T dashboard python3 -c '
+  if "${COMPOSE[@]}" exec -T dashboard python3 -c '
 import json,urllib.request
 with urllib.request.urlopen("http://127.0.0.1:8000/health",timeout=4) as response:
  assert response.status == 200
@@ -106,7 +114,7 @@ done
 [[ "$healthy" == true ]] || rollback
 # A healthy dashboard alone is not enough if the RTMP media server or TLS
 # reverse proxy failed. Inspect all three mandatory services.
-running_services="$(docker compose ps --status running --services)"
+running_services="$("${COMPOSE[@]}" ps --status running --services)"
 for required in dashboard mediamtx caddy; do
   grep -Fxq "$required" <<< "$running_services" || {
     say "Required service $required is not running after upgrade."

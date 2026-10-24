@@ -27,6 +27,8 @@ jobs:
           bash -n install.sh
           bash -n scripts/install-updater.sh
           bash -n scripts/update-release.sh
+          bash -n scripts/telegram-free-setup.sh
+          bash tests/test_telegram_free_setup.sh
           bash tests/test_installer.sh
           node --check dashboard/static/app.js
           node --check dashboard/static/scene-editor.js
@@ -35,6 +37,7 @@ jobs:
           python -m compileall -q dashboard scripts
           cp .env.example .env
           docker compose config --quiet
+          docker compose -f compose.yaml -f compose.telegram-free.yaml config --quiet
       - name: Install test tools
         run: |
           sudo apt-get update
