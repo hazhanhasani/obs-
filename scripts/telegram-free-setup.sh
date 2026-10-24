@@ -90,7 +90,12 @@ apply_profile() {
   local attempt
   for attempt in 1 2 3 4 5; do
     if "${COMPOSE[@]}" exec -T dashboard python -c       'from urllib.request import urlopen; import json; assert json.load(urlopen("http://127.0.0.1:8000/health",timeout=5))["ok"] is True'       >/dev/null 2>&1; then
+      # Persist the selected Compose overlay without touching credentials.
+      # The stable-release updater reads this gitignored marker.
+      : > .streamcore-telegram-free-profile
+      chmod 600 .streamcore-telegram-free-profile
       info "Dashboard health check: passed."
+      info "Low-resource update profile enabled for future stable releases."
       info "Open your existing HTTPS panel, attach a Telegram RTMP(S) destination, and verify actual playback in Telegram."
       return 0
     fi

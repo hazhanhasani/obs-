@@ -19,7 +19,7 @@ def test_failed_upgrade_restores_original_commit(tmp_path):
     git('commit', '-am', 'new')
     result = subprocess.run(['bash', '-c', '''
 old="$1"; old_branch=main; backup=unused
-say(){ :; }; docker(){ :; }
+say(){ :; }; docker(){ :; }; COMPOSE=(docker compose)
 ''' + rollback + '\nrollback', 'test', old], cwd=tmp_path)
     assert result.returncode == 1
     assert git('rev-parse', 'HEAD') == old

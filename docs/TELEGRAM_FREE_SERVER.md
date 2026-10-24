@@ -82,9 +82,24 @@ file-loop may avoid transcoding when the video is already H.264/AAC. Multiple
 video layers, Full HD portrait, complex effects and concurrent channels are
 not recommended on a small free VPS.
 
-The profile does not add an automatic migration or replace the existing release
-updater. Review how automated release deployments invoke Compose before enabling
-unattended updates; they may restart this profile with the default settings.
+After a successful `--apply`, a gitignored private marker
+`.streamcore-telegram-free-profile` tells the existing stable-release updater
+to preserve this Compose overlay (including rollback). The updater's normal
+`AUTO_UPDATE_ALLOW_LIVE=false` stream interruption safeguards still apply.
+This marker only exists after successful setup; a manual default-profile
+`docker compose up` does not remove it.
+
+To intentionally return to the ordinary profile during maintenance:
+
+```bash
+cd /opt/streamcore
+# Stop broadcasts and ensure you have backed up .env and data.
+docker compose up -d --build
+rm -f .streamcore-telegram-free-profile
+```
+
+Avoid mixing profile and default Compose commands unless you are explicitly
+switching configurations.
 
 ## 3. Connect Telegram as the stream destination
 
