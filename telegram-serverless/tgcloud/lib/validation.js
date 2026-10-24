@@ -5,6 +5,7 @@ export function normalizeBaseUrl(value) {
   if (url.protocol !== 'https:' || url.username || url.password || url.hash ||
       url.search || url.port || url.pathname !== '/') throw new Error('HTTPS hostname only');
   const host = url.hostname;
+  if (/^[0-9]+(?:\.[0-9]+){3}$/.test(host)) throw new Error('IP addresses are not permitted');
   if (!/^(?=.{4,253}$)[a-z0-9-]+(?:\.[a-z0-9-]+)+$/i.test(host) ||
       host.split('.').some(part => !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i.test(part)) ||
       /\.(local|localhost|internal|invalid|test|example)$/i.test(host)) {

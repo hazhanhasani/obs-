@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="referrer" content="no-referrer">
+<title>StreamCore | Telegram Control</title>
+<link rel="stylesheet" href="./styles.css">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="./app.js" defer></script>
+</head>
+<body>
+<main class="container">
+ <header class="header">
+  <div><small>BLUEVPN · STREAM STUDIO</small><h1>کنترل پخش زنده</h1><p>مدیریت موتور استریم از تلگرام</p></div>
+  <div class="indicator" id="indicator" aria-label="ارتباط با سرور"></div>
+ </header>
+ <section class="stats" aria-live="polite">
+  <div><span>وضعیت</span><strong id="connection">در حال بررسی</strong></div>
+  <div><span>CPU</span><strong id="cpu">—</strong></div>
+  <div><span>RAM</span><strong id="ram">—</strong></div>
+ </section>
+ <section class="toolbar"><h2>کانال‌های استریم</h2><button type="button" id="refresh">↻ بروزرسانی</button></section>
+ <section class="channels" id="channels"><p class="hint">در حال دریافت...</p></section>
+ <details class="settings">
+  <summary>⚙ تنظیم اتصال امن</summary>
+  <form id="connectionForm">
+   <label for="baseUrl">دامنه HTTPS موتور استریم</label>
+   <input id="baseUrl" type="url" placeholder="https://stream.example.com" required autocomplete="url">
+   <label for="token">Bridge API Token</label>
+   <input id="token" type="password" minlength="64" maxlength="64" required autocomplete="off" placeholder="64-character hexadecimal key">
+   <p class="hint">کلید فقط به Endpoint احرازهویت‌شده تلگرام ارسال می‌شود؛ در مرورگر ذخیره نمی‌شود.</p>
+   <button type="submit" class="primary">ثبت اتصال</button>
+  </form>
+ </details>
+ <p role="status" aria-live="polite" id="message" class="message"></p>
+</main>
+</body>
+</html>
