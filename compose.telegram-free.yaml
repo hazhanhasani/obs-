@@ -1,0 +1,13 @@
+# Optional low-resource profile for an actual Linux VPS.
+# This is NOT a Telegram-hosted execution environment or an RTMP ingest server.
+# Run with: docker compose -f compose.yaml -f compose.telegram-free.yaml up -d --build
+name: streamcore
+services:
+  dashboard:
+    environment:
+      # Only composited scene mode reads these variables.
+      # File-loop and Telegram outbound relays use stream-copy when possible.
+      SCENE_ENCODER_PRESET: "${TG_SCENE_ENCODER_PRESET:-ultrafast}"
+      SCENE_ENCODER_THREADS: "${TG_SCENE_ENCODER_THREADS:-1}"
+      SCENE_VIDEO_BITRATE_KBPS: "${TG_SCENE_VIDEO_BITRATE_KBPS:-1200}"
+      MAX_UPLOAD_MB: "${TG_MAX_UPLOAD_MB:-512}"

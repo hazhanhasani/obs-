@@ -18,6 +18,8 @@ jobs:
           bash -n install.sh
           bash -n scripts/update-release.sh
           bash -n scripts/install-updater.sh
+          bash -n scripts/telegram-free-setup.sh
+          bash tests/test_telegram_free_setup.sh
           python3 -m py_compile scripts/release-check.py
           bash tests/test_installer.sh
           node --check dashboard/static/app.js
@@ -27,6 +29,7 @@ jobs:
           python -m compileall -q dashboard
           cp .env.example .env
           docker compose --profile legacy-demo --profile legacy-file config --quiet
+          docker compose -f compose.yaml -f compose.telegram-free.yaml config --quiet
       - name: Verify actual browser resize handles (desktop and touch-width)
         run: |
           command -v google-chrome || command -v google-chrome-stable || command -v chromium
