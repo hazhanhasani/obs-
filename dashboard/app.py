@@ -22,6 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.middleware.sessions import SessionMiddleware
 from destinations import DestinationSupervisor, init_table
+from cloud_bridge import build_cloud_router
 from telemetry import ProgressTracker
 from scene import init_scene_db, scene_for, save_scene, remove_scene, is_scene_media_used, scene_command, preflight_scene, validate_scene, validate_text_layers, scene_snapshot_command
 from scene_geometry import canvas_size, CANVAS_PRESETS
@@ -405,6 +406,10 @@ def configure(request: Request, channel: str, body: ChannelConfig):
 @app.post("/api/channels/{channel}/{operation}")
 def control(request: Request, channel: str, operation: str):
     authorize(request, unsafe=True)
+    return set_channel_state(channel, operation)
+
+
+def set_channel_state(channel: str, operation: str):
     if operation not in ("start", "stop"):
         raise HTTPException(status_code=404)
     with connect() as db:
@@ -424,6 +429,9 @@ def control(request: Request, channel: str, operation: str):
         controller.next_retry.pop(channel, None)
         controller.reconcile()
     return {"ok": True}
+
+# Token-bound and redacted control plane, disabled by default.
+app.include_router(build_cloud_router(overview, set_channel_state))
 
 @app.delete("/api/channels/{channel}")
 def remove_channel(request: Request, channel: str):

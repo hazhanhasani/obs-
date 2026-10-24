@@ -9,3 +9,5 @@ node_modules/
 test-results/
 __pycache__/
 .pytest_cache/
+
+telegram-serverless/.tgcloud/
